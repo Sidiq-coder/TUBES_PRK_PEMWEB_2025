@@ -3,19 +3,19 @@
 
 ## 📊 PROGRESS OVERVIEW
 
-| No | Fitur | Status | Priority | Estimasi | Actual | Complexity |
-|----|-------|--------|----------|----------|--------|------------|
-| 1 | ✅ Supplier Management | **DONE** | P0 | 3h | 3h | ⭐⭐ |
-| 2 | ✅ Category Management | **DONE** | P0 | 2h | 2h | ⭐ |
-| 3 | ⬜ Material Management | TODO | P0 | 5h | - | ⭐⭐⭐⭐ |
-| 4 | ⬜ Material Images | TODO | P1 | 2h | - | ⭐⭐⭐ |
-| 5 | ⬜ Stock In (Barang Masuk) | TODO | P0 | 4h | - | ⭐⭐⭐⭐ |
-| 6 | ⬜ Stock Out (Barang Keluar) | TODO | P0 | 4h | - | ⭐⭐⭐⭐ |
-| 7 | ⬜ Stock Adjustment | TODO | P1 | 3h | - | ⭐⭐⭐ |
-| 8 | ⬜ Reports & Analytics | TODO | P1 | 4h | - | ⭐⭐⭐⭐ |
-| 9 | ⬜ Activity Logs | TODO | P2 | 2h | - | ⭐⭐ |
-| 10 | ⬜ User Management | TODO | P2 | 3h | - | ⭐⭐⭐ |
-| 11 | ⬜ Role & Permission | TODO | P2 | 3h | - | ⭐⭐⭐ |
+| No | Fitur | Status | Priority | Complexity |
+|----|-------|--------|----------|------------|
+| 1 | ✅ Supplier Management | **DONE** | P0 | ⭐⭐ |
+| 2 | ✅ Category Management | **DONE** | P0  | ⭐ |
+| 3 | ⬜ Material Management | TODO | P0 | ⭐⭐⭐⭐ |
+| 4 | ⬜ Material Images | TODO | P1 | ⭐⭐⭐ |
+| 5 | ⬜ Stock In (Barang Masuk) | TODO | P0 | ⭐⭐⭐⭐ |
+| 6 | ⬜ Stock Out (Barang Keluar) | TODO | P0 | ⭐⭐⭐⭐ |
+| 7 | ⬜ Stock Adjustment | TODO | P1 | ⭐⭐⭐ |
+| 8 | ⬜ Reports & Analytics | TODO | P1 | ⭐⭐⭐⭐ |
+| 9 | ⬜ Activity Logs | TODO | P2 | ⭐⭐ |
+| 10 | ⬜ User Management | TODO | P2 | ⭐⭐⭐ |
+| 11 | ⬜ Role & Permission | TODO | P2 | ⭐⭐⭐ |
 
 
 ---
