@@ -21,25 +21,45 @@ const ApiClient = {
 
         try {
             const response = await fetch(url, config);
-            const data = await response.json();
+            
+            // Check if response is HTML (redirect to login)
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('text/html')) {
+                // Redirect to login page
+                window.location.href = '/login';
+                const error = new Error('Sesi telah berakhir. Silakan login kembali.');
+                error.status = 401;
+                error.errors = {};
+                throw error;
+            }
+            
+            // Try to parse JSON response
+            let data;
+            try {
+                data = await response.json();
+            } catch (parseError) {
+                console.error('JSON parse error:', parseError);
+                const error = new Error('Server mengembalikan response yang tidak valid');
+                error.status = response.status;
+                error.errors = {};
+                throw error;
+            }
 
             if (!response.ok) {
-                throw {
-                    status: response.status,
-                    message: data.message || 'Terjadi kesalahan',
-                    errors: data.errors || {}
-                };
+                const error = new Error(data.message || 'Terjadi kesalahan');
+                error.status = response.status;
+                error.errors = data.errors || {};
+                throw error;
             }
 
             return data;
         } catch (error) {
-            // Network error or JSON parse error
+            // Network error or other fetch errors
             if (!error.status) {
-                throw {
-                    status: 0,
-                    message: 'Tidak dapat terhubung ke server',
-                    errors: {}
-                };
+                const netError = new Error('Tidak dapat terhubung ke server');
+                netError.status = 0;
+                netError.errors = {};
+                throw netError;
             }
             throw error;
         }

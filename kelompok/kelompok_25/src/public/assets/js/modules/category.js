@@ -162,10 +162,24 @@ const CategoryModule = {
             }
         } catch (error) {
             console.error('Load categories error:', error);
-            console.error('Error details:', error);
-            const errorMsg = error.message || (error.errors ? JSON.stringify(error.errors) : 'Gagal memuat data kategori');
-            Toast.error('Gagal Memuat Data', errorMsg);
-            this.showEmpty('Gagal memuat data kategori');
+            
+            let errorMsg = 'Gagal memuat data kategori';
+            if (error.message) {
+                errorMsg = error.message;
+            }
+            
+            if (error.status === 0) {
+                errorMsg = 'Tidak dapat terhubung ke server. Pastikan server berjalan.';
+            } else if (error.status === 401) {
+                errorMsg = 'Sesi Anda telah berakhir. Silakan login kembali.';
+            } else if (error.status === 403) {
+                errorMsg = 'Anda tidak memiliki akses untuk melihat data ini.';
+            } else if (error.status >= 500) {
+                errorMsg = 'Terjadi kesalahan pada server. Silakan coba lagi nanti.';
+            }
+            
+            Toast.error(errorMsg);
+            this.showEmpty(errorMsg);
         }
     },
 

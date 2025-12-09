@@ -8,8 +8,8 @@
 require_once ROOT_PATH . '/core/Controller.php';
 require_once ROOT_PATH . '/core/Response.php';
 require_once ROOT_PATH . '/core/Auth.php';
-require_once ROOT_PATH . '/core/Database.php';
-require_once ROOT_PATH . '/middlewares/AuthMiddleware.php';
+require_once ROOT_PATH . '/config/database.php';
+require_once ROOT_PATH . '/middleware/AuthMiddleware.php';
 require_once ROOT_PATH . '/models/Material.php';
 require_once ROOT_PATH . '/models/MaterialImage.php';
 
