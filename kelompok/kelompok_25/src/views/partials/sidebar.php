@@ -34,7 +34,7 @@ $menuSections = [
         'label' => 'Pengaturan',
         'items' => [
             ['label' => 'Manajemen Role', 'icon' => 'shield', 'href' => url('/roles')],
-            ['label' => 'Profil Saya', 'icon' => 'user', 'href' => url('/profile')],
+            ['label' => 'Profil Saya', 'icon' => 'user', 'href' => '../../../profil.php'],
         ]
     ],
 ];
