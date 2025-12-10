@@ -57,10 +57,6 @@ class PageController extends Controller
     {
         try {
             require_once ROOT_PATH . '/models/Material.php';
-            require_once ROOT_PATH . '/models/Category.php';
-            require_once ROOT_PATH . '/config/database.php';
-
-            $db = Database::getInstance()->getConnection();
 
             // Get filters
             $filters = [
@@ -69,37 +65,32 @@ class PageController extends Controller
                 'status' => $_GET['status'] ?? ''
             ];
 
-            // Use Material model's getStockReport method
+            // Initialize Material model
             $materialModel = new Material();
-            $allMaterials = $materialModel->getStockReport(
+            
+            // Get filtered stock report
+            $materials = $materialModel->getStockReport(
                 $filters['search'],
                 $filters['category'],
                 $filters['status']
             );
 
-            // Calculate summary
-            $summary = [
-                'total_items' => count($allMaterials),
-                'total_value' => array_sum(array_map(function($m) {
-                    return $m['total_value'] ?? 0;
-                }, $allMaterials)),
-                'restock_needed' => count(array_filter($allMaterials, function($m) {
-                    return ($m['current_stock'] ?? 0) <= 0;
-                })),
-                'almost_empty' => count(array_filter($allMaterials, function($m) {
-                    return ($m['current_stock'] ?? 0) > 0 && ($m['current_stock'] ?? 0) <= ($m['min_stock'] ?? 0);
-                }))
-            ];
-
-            // Get all categories for filter dropdown
-            $categoryModel = new Category();
-            $categories = $categoryModel->getAll() ?? [];
+            // Get summary statistics
+            $summary = $materialModel->getStockSummary();
+            
+            // Get categories for filter dropdown
+            $categories = $materialModel->getCategories();
 
             $this->view('reports/stock', [
                 'title' => 'Laporan Stok',
-                'materials' => $allMaterials,
-                'categories' => $categories,
-                'summary' => $summary,
+                'materials' => $materials ?? [],
+                'categories' => $categories ?? [],
+                'summary' => $summary ?? [
+                    'total_items' => 0,
+                    'total_value' => 0,
+                    'restock_needed' => 0,
+                    'almost_empty' => 0
+                ],
                 'filters' => $filters
             ]);
         } catch (Exception $e) {
@@ -122,12 +113,7 @@ class PageController extends Controller
     public function reportsTransactions()
     {
         try {
-            require_once ROOT_PATH . '/models/StockIn.php';
-            require_once ROOT_PATH . '/models/StockOut.php';
-            require_once ROOT_PATH . '/models/StockAdjustment.php';
-            require_once ROOT_PATH . '/config/database.php';
-
-            $db = Database::getInstance()->getConnection();
+            require_once ROOT_PATH . '/models/Transaction.php';
 
             // Get filters
             $filters = [
@@ -136,66 +122,31 @@ class PageController extends Controller
                 'end_date' => $_GET['end_date'] ?? date('Y-m-d')
             ];
 
+            // Initialize Transaction model
+            $transactionModel = new Transaction();
+            
+            // Get consolidated transactions
+            $allTransactions = $transactionModel->getTransactionReport(
+                $filters['start_date'],
+                $filters['end_date'],
+                $filters['type'] !== 'all' ? $filters['type'] : null
+            );
+
+            // Filter by type if specified
             $transactions = [];
-
-            // Get stock in transactions
-            if ($filters['type'] === 'all' || $filters['type'] === 'stock_in') {
-                $stockInModel = new StockIn();
-                $stockIns = $stockInModel->getByDateRange($filters['start_date'], $filters['end_date']);
-                if (!empty($stockIns)) {
-                    foreach ($stockIns as $item) {
+            if (!empty($allTransactions)) {
+                foreach ($allTransactions as $txn) {
+                    if ($filters['type'] === 'all' || $txn['type'] === $filters['type']) {
+                        // Map column names for view
                         $transactions[] = [
-                            'date' => $item['transaction_date'] ?? $item['created_at'],
-                            'type' => 'stock_in',
-                            'material_name' => $item['material_name'] ?? 'Unknown',
-                            'quantity' => $item['quantity'] ?? 0,
-                            'unit' => $item['unit'] ?? 'pcs',
-                            'value' => ($item['quantity'] ?? 0) * ($item['unit_price'] ?? 0)
+                            'date' => $txn['date'] ?? date('Y-m-d'),
+                            'type' => $txn['type'] ?? 'unknown',
+                            'material_name' => $txn['material_name'] ?? 'Unknown',
+                            'quantity' => $txn['quantity'] ?? 0,
+                            'unit' => $txn['unit'] ?? 'pcs',
+                            'value' => $txn['value'] ?? 0
                         ];
                     }
-                }
-            }
-
-            // Get stock out transactions
-            if ($filters['type'] === 'all' || $filters['type'] === 'stock_out') {
-                $stockOutModel = new StockOut($db);
-                $stockOuts = $stockOutModel->getByDateRange($filters['start_date'], $filters['end_date']);
-                if (!empty($stockOuts)) {
-                    foreach ($stockOuts as $item) {
-                        $transactions[] = [
-                            'date' => $item['transaction_date'] ?? $item['created_at'],
-                            'type' => 'stock_out',
-                            'material_name' => $item['material_name'] ?? 'Unknown',
-                            'quantity' => $item['quantity'] ?? 0,
-                            'unit' => $item['unit'] ?? 'pcs',
-                            'value' => 0
-                        ];
-                    }
-                }
-            }
-
-            // Get adjustments
-            if ($filters['type'] === 'all' || $filters['type'] === 'adjustment') {
-                $stockAdjustmentModel = new StockAdjustment($db);
-                try {
-                    $adjustmentsResult = $stockAdjustmentModel->getAll(1, 9999, [
-                        'start_date' => $filters['start_date'],
-                        'end_date' => $filters['end_date']
-                    ]);
-                    if (!empty($adjustmentsResult['data'])) {
-                        foreach ($adjustmentsResult['data'] as $item) {
-                            $transactions[] = [
-                                'date' => $item['adjustment_date'] ?? $item['created_at'],
-                                'type' => 'adjustment',
-                                'material_name' => $item['material_name'] ?? 'Unknown',
-                                'quantity' => abs($item['difference'] ?? 0),
-                                'unit' => $item['unit'] ?? 'pcs',
-                                'value' => 0
-                            ];
-                        }
-                    }
-                } catch (Exception $e) {
-                    error_log("Error getting adjustments: " . $e->getMessage());
                 }
             }
 
@@ -208,7 +159,7 @@ class PageController extends Controller
             $summary = [
                 'total_transactions' => count($transactions),
                 'total_stock_in' => array_sum(array_map(function($t) {
-                    return $t['type'] === 'stock_in' ? $t['value'] : 0;
+                    return $t['type'] === 'stock_in' ? (float)$t['value'] : 0;
                 }, $transactions)),
                 'total_stock_out' => count(array_filter($transactions, function($t) {
                     return $t['type'] === 'stock_out';

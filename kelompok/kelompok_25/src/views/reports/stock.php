@@ -13,28 +13,28 @@
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <article class="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 flex flex-col gap-3">
+        <article class="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
             <div class="flex items-center justify-between">
                 <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600 text-xl">📦</span>
             </div>
             <p class="text-sm text-slate-500">Total Item</p>
             <p class="text-2xl font-semibold text-slate-900"><?= isset($summary) ? ($summary['total_items'] ?? 0) : 0 ?></p>
         </article>
-        <article class="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 flex flex-col gap-3">
+        <article class="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
             <div class="flex items-center justify-between">
                 <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 text-xl">✓</span>
             </div>
-            <p class="text-sm text-slate-500">Total Nilai</p>
+            <p class="text-sm text-slate-500">Total Nilai Stok</p>
             <p class="text-2xl font-semibold text-slate-900">Rp <?= number_format(isset($summary) ? ($summary['total_value'] ?? 0) : 0, 0, ',', '.') ?></p>
         </article>
-        <article class="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 flex flex-col gap-3">
+        <article class="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
             <div class="flex items-center justify-between">
                 <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-600 text-xl">⚠</span>
             </div>
             <p class="text-sm text-slate-500">Perlu Restock</p>
             <p class="text-2xl font-semibold text-slate-900"><?= isset($summary) ? ($summary['restock_needed'] ?? 0) : 0 ?> Item</p>
         </article>
-        <article class="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 flex flex-col gap-3">
+        <article class="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 flex flex-col gap-3 hover:shadow-md transition-shadow">
             <div class="flex items-center justify-between">
                 <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 text-rose-600 text-xl">⊗</span>
             </div>
@@ -120,33 +120,9 @@
 </section>
 
 
+<script src="/assets/js/modules/reports.js"></script>
 <script>
-let debounceTimer;
-
-document.getElementById('searchInput').addEventListener('input', function() {
-    clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(applyFilters, 500);
-});
-
-document.getElementById('categoryFilter').addEventListener('change', applyFilters);
-document.getElementById('statusFilter').addEventListener('change', applyFilters);
-
-function applyFilters() {
-    const search = document.getElementById('searchInput').value;
-    const category = document.getElementById('categoryFilter').value;
-    const status = document.getElementById('statusFilter').value;
-    
-    const params = new URLSearchParams();
-    if (search) params.append('search', search);
-    if (category) params.append('category', category);
-    if (status) params.append('status', status);
-    
-    window.location.href = '/reports/stock?' + params.toString();
-}
-
 function exportExcel() {
-    alert('Fitur export Excel akan segera tersedia!');
-    // TODO: Implement export functionality
-    // window.location.href = '/api/reports/stock/export?' + new URLSearchParams({...filters});
+    Reports.exportExcel();
 }
 </script>
