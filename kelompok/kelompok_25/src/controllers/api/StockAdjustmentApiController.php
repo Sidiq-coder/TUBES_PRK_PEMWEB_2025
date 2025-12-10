@@ -102,7 +102,7 @@ class StockAdjustmentApiController extends Controller
                 'new_stock' => isset($input['new_stock']) ? (float)$input['new_stock'] : null,
                 'reason' => $input['reason'] ?? null,
                 'notes' => $input['notes'] ?? null,
-                'adjusted_by' => $userId
+                'created_by' => $userId
             ];
 
             $adjustment = $this->model->create($payload);

@@ -327,14 +327,20 @@ const StockAdjustmentModule = {
         };
 
         // Validate
-        const errors = Validator.validate(data, {
-            material_id: 'required|numeric',
-            new_stock: 'required|numeric|min:0',
-            reason: 'required'
-        });
-
-        if (Object.keys(errors).length > 0) {
-            Toast.error('Mohon lengkapi form dengan benar');
+        if (!data.material_id) {
+            Toast.error('Material harus dipilih');
+            return;
+        }
+        if (!data.new_stock && data.new_stock !== 0) {
+            Toast.error('New stock harus diisi');
+            return;
+        }
+        if (parseFloat(data.new_stock) < 0) {
+            Toast.error('New stock tidak boleh negatif');
+            return;
+        }
+        if (!data.reason) {
+            Toast.error('Reason harus dipilih');
             return;
         }
 

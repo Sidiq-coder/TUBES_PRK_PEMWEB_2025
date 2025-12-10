@@ -216,6 +216,17 @@
 <!-- Toast Container -->
 <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
 
+<!-- Toast Notification -->
+<div id="toast" class="hidden fixed top-4 right-4 z-50 min-w-[300px] bg-white rounded-lg shadow-lg border-l-4 transform transition-all duration-300 ease-in-out">
+    <div class="p-4 flex items-start">
+        <div id="toastIcon" class="flex-shrink-0 w-6 h-6 mr-3"></div>
+        <div class="flex-1">
+            <h4 id="toastTitle" class="font-semibold text-gray-900 mb-1"></h4>
+            <p id="toastMessage" class="text-sm text-gray-600"></p>
+        </div>
+    </div>
+</div>
+
 <!-- Scripts -->
 <script src="/assets/js/utils/api.js"></script>
 <script src="/assets/js/utils/toast.js"></script>
