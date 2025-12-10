@@ -196,20 +196,18 @@ INSERT INTO roles (name, code, description) VALUES
 
 -- Insert default permissions
 INSERT INTO permissions (name, code, description) VALUES
-('View Dashboard', 'view_dashboard', 'Access to dashboard'),
-('Manage Users', 'manage_users', 'Create, edit, delete users'),
-('Manage Roles', 'manage_roles', 'Create, edit, delete roles'),
-('View Materials', 'view_materials', 'View materials list'),
-('Create Materials', 'create_materials', 'Add new materials'),
-('Edit Materials', 'edit_materials', 'Edit existing materials'),
-('Delete Materials', 'delete_materials', 'Delete materials'),
-('View Stock', 'view_stock', 'View stock information'),
-('Stock In', 'stock_in', 'Record stock in transactions'),
-('Stock Out', 'stock_out', 'Record stock out transactions'),
-('Stock Adjustment', 'stock_adjustment', 'Adjust stock levels'),
-('View Reports', 'view_reports', 'Access to reports'),
-('Manage Suppliers', 'manage_suppliers', 'Manage suppliers'),
-('Manage Categories', 'manage_categories', 'Manage categories');
+('Dashboard', 'dashboard', 'Access to dashboard'),
+('Data Bahan Baku', 'data_bahan_baku', 'Manage materials data'),
+('Data Supplier', 'data_supplier', 'Manage supplier information'),
+('Data Kategori', 'data_kategori', 'Manage categories'),
+('Stok Masuk', 'stok_masuk', 'Record incoming stock'),
+('Stok Keluar', 'stok_keluar', 'Record outgoing stock'),
+('Penyesuaian Stok', 'penyesuaian_stok', 'Adjust stock levels'),
+('Laporan Stok', 'laporan_stok', 'View stock reports'),
+('Laporan Transaksi', 'laporan_transaksi', 'View transaction reports'),
+('Bahan Hampir Habis', 'bahan_hampir_habis', 'View low stock alerts'),
+('Manajemen Role', 'manajemen_role', 'Manage user roles and permissions'),
+('Profil Saya', 'profil_saya', 'Manage personal profile');
 
 -- Assign permissions to admin role
 INSERT INTO role_permissions (role_id, permission_id, is_default)
@@ -239,14 +237,24 @@ SELECT
 FROM permissions
 WHERE code IN ('view_dashboard', 'view_materials', 'view_stock', 'stock_in', 'stock_out');
 
--- Create default admin user
--- Password: admin123
-INSERT INTO users (name, email, password_hash, is_active) VALUES
-('Administrator', 'admin@inventory.com', '$2y$12$LQv3c1yycjQzybzKj0Rlj.8r1r5Jq5F5R1F5R1F5R1F5R1F5R1F5Ru', TRUE);
+-- Create default users
+-- Password for all users: admin123
+INSERT INTO users (name, email, password_hash, phone, is_active) VALUES
+('Admin User', 'admin@inventory.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '0812-3456-7890', TRUE),
+('Budi Santoso', 'budi@inventory.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '0813-4567-8901', TRUE),
+('Siti Aminah', 'siti@inventory.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '0814-5678-9012', TRUE),
+('Ahmad Yani', 'ahmad@inventory.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '0815-6789-0123', TRUE),
+('Rina Dewi', 'rina@inventory.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '0816-7890-1234', TRUE),
+('Joko Widodo', 'joko@inventory.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '0817-8901-2345', FALSE);
 
--- Assign admin role to admin user
-INSERT INTO user_roles (user_id, role_id, is_default)
-VALUES (1, (SELECT id FROM roles WHERE code = 'admin'), TRUE);
+-- Assign roles to users
+INSERT INTO user_roles (user_id, role_id, is_default) VALUES
+(1, (SELECT id FROM roles WHERE code = 'admin'), TRUE),
+(2, (SELECT id FROM roles WHERE code = 'admin'), TRUE),
+(3, (SELECT id FROM roles WHERE code = 'manager'), TRUE),
+(4, (SELECT id FROM roles WHERE code = 'manager'), TRUE),
+(5, (SELECT id FROM roles WHERE code = 'staff'), TRUE),
+(6, (SELECT id FROM roles WHERE code = 'manager'), TRUE);
 
 -- Insert sample categories
 INSERT INTO categories (name, description) VALUES

@@ -27,7 +27,7 @@ $menuSections = [
         'items' => [
             ['label' => 'Laporan Stok', 'icon' => 'document', 'href' => url('/reports/stock')],
             ['label' => 'Laporan Transaksi', 'icon' => 'document-text', 'href' => url('/reports/transactions')],
-            ['label' => 'Bahan Hampir Habis', 'icon' => 'warning', 'href' => url('/reports/low-stock')],
+            ['label' => 'Bahan Hampir Habis', 'icon' => 'warning', 'href' => '../../../bahan_hampir_habis.php'],
         ]
     ],
     [
