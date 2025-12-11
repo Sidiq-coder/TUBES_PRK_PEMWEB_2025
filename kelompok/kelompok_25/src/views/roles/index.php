@@ -1,13 +1,10 @@
 <section class="p-6 md:p-10 space-y-8">
     <div class="flex items-center justify-between">
         <div>
-            <p class="text-sm text-slate-500 uppercase tracking-[0.3em]">Manajemen</p>
-            <h1 class="text-2xl font-semibold text-slate-800 mt-1">Manajemen Role & Hak Akses</h1>
-            <p class="text-sm text-slate-500">Kelola peran pengguna dan izin akses sistem</p>
+            <p class="text-sm text-slate-500 uppercase tracking-[0.3em]">Informasi</p>
+            <h1 class="text-2xl font-semibold text-slate-800 mt-1">Role & Hak Akses</h1>
+            <p class="text-sm text-slate-500">Lihat peran dan izin akses sistem</p>
         </div>
-        <button onclick="RoleManagement.showCreateModal()" class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition">
-            <span>+</span> Tambah Role
-        </button>
     </div>
 
     <!-- Tabs -->
