@@ -85,4 +85,5 @@ $router->get('/reports/transactions/export', function() {
 });
 $router->get('/reports/low-stock', 'web/PageController@reportsLowStock');
 $router->get('/roles', 'web/PageController@roles');
+$router->get('/users', 'web/PageController@users');
 $router->get('/profile', 'web/PageController@profile');

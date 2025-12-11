@@ -20,7 +20,7 @@ class StockAdjustment
     /**
      * Create a stock adjustment:
      * $data: [
-     *   material_id (int), new_stock (numeric), reason (string), notes (string), adjusted_by (int)
+     *   material_id (int), new_stock (numeric), reason (string), notes (string), created_by (int)
      * ]
      *
      * Returns inserted adjustment row array.
@@ -52,8 +52,8 @@ class StockAdjustment
             // insert adjustment record
             $ins = $this->db->prepare("
                 INSERT INTO stock_adjustments
-                (material_id, old_stock, new_stock, difference, reason, notes, adjusted_by, adjusted_at)
-                VALUES (:material_id, :old_stock, :new_stock, :difference, :reason, :notes, :adjusted_by, NOW())
+                (material_id, old_stock, new_stock, difference, reason, adjustment_date, created_by)
+                VALUES (:material_id, :old_stock, :new_stock, :difference, :reason, CURDATE(), :created_by)
             ");
             $ins->execute([
                 ':material_id' => (int)$data['material_id'],
@@ -61,8 +61,7 @@ class StockAdjustment
                 ':new_stock' => $newStock,
                 ':difference' => $difference,
                 ':reason' => $data['reason'],
-                ':notes' => $data['notes'],
-                ':adjusted_by' => (int)$data['adjusted_by']
+                ':created_by' => (int)$data['created_by']
             ]);
 
             $adjustmentId = (int)$this->db->lastInsertId();
@@ -73,7 +72,7 @@ class StockAdjustment
 
             // log critical activity
             $this->logActivity([
-                'user_id' => (int)$data['adjusted_by'],
+                'user_id' => (int)$data['created_by'],
                 'action' => 'stock_adjustment.create',
                 'message' => "Adjustment #{$adjustmentId} material_id={$data['material_id']} old={$oldStock} new={$newStock} diff={$difference}",
                 'meta' => json_encode([
@@ -112,11 +111,9 @@ class StockAdjustment
         if (empty($data['reason']) || !in_array($data['reason'], $this->reasons, true)) {
             throw new Exception("reason invalid or required");
         }
-        if (empty($data['notes']) || mb_strlen(trim($data['notes'])) < 10) {
-            throw new Exception("notes required, minimum 10 characters");
-        }
-        if (empty($data['adjusted_by'])) {
-            throw new Exception("adjusted_by required");
+        // notes column doesn't exist in table, removed validation
+        if (empty($data['created_by'])) {
+            throw new Exception("created_by required");
         }
     }
 
@@ -179,9 +176,9 @@ class StockAdjustment
         $sql = "SELECT sa.*, m.name as material_name, u.name as adjusted_by_name
                 FROM stock_adjustments sa
                 LEFT JOIN materials m ON m.id = sa.material_id
-                LEFT JOIN users u ON u.id = sa.adjusted_by
+                LEFT JOIN users u ON u.id = sa.created_by
                 $whereSql
-                ORDER BY sa.adjusted_at DESC
+                ORDER BY sa.created_at DESC
                 LIMIT :offset, :perPage";
 
         $stmt = $this->db->prepare($sql);
@@ -205,7 +202,7 @@ class StockAdjustment
 
     public function findById(int $id): ?array
     {
-        $stmt = $this->db->prepare("SELECT sa.*, m.name as material_name, u.name as adjusted_by_name FROM stock_adjustments sa LEFT JOIN materials m ON m.id = sa.material_id LEFT JOIN users u ON u.id = sa.adjusted_by WHERE sa.id = ?");
+        $stmt = $this->db->prepare("SELECT sa.*, m.name as material_name, u.name as adjusted_by_name FROM stock_adjustments sa LEFT JOIN materials m ON m.id = sa.material_id LEFT JOIN users u ON u.id = sa.created_by WHERE sa.id = ?");
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
@@ -223,7 +220,7 @@ class StockAdjustment
             $where .= " AND sa.adjusted_at <= :end";
             $params[':end'] = $dateRange['end'] . ' 23:59:59';
         }
-        $stmt = $this->db->prepare("SELECT sa.*, u.name as adjusted_by_name FROM stock_adjustments sa LEFT JOIN users u ON u.id = sa.adjusted_by $where ORDER BY sa.adjusted_at DESC");
+        $stmt = $this->db->prepare("SELECT sa.*, u.name as adjusted_by_name FROM stock_adjustments sa LEFT JOIN users u ON u.id = sa.created_by $where ORDER BY sa.created_at DESC");
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -243,7 +240,7 @@ class StockAdjustment
             $where .= " AND sa.adjusted_at <= :end";
             $params[':end'] = $dateRange['end'] . ' 23:59:59';
         }
-        $stmt = $this->db->prepare("SELECT sa.*, m.name as material_name, u.name as adjusted_by_name FROM stock_adjustments sa LEFT JOIN materials m ON m.id = sa.material_id LEFT JOIN users u ON u.id = sa.adjusted_by $where ORDER BY sa.adjusted_at DESC");
+        $stmt = $this->db->prepare("SELECT sa.*, m.name as material_name, u.name as adjusted_by_name FROM stock_adjustments sa LEFT JOIN materials m ON m.id = sa.material_id LEFT JOIN users u ON u.id = sa.created_by $where ORDER BY sa.created_at DESC");
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -273,5 +270,41 @@ class StockAdjustment
             'by_reason' => $byReason,
             'totals' => $totals
         ];
+    }
+
+    /**
+     * Delete stock adjustment (soft delete or hard delete based on business logic)
+     */
+    public function delete(int $id): bool
+    {
+        try {
+            $this->db->beginTransaction();
+
+            // Get the adjustment details first
+            $adjustment = $this->findById($id);
+            if (!$adjustment) {
+                $this->db->rollBack();
+                return false;
+            }
+
+            // Reverse the adjustment: restore original stock (current_stock)
+            $stmt = $this->db->prepare("
+                UPDATE materials 
+                SET current_stock = current_stock - ? 
+                WHERE id = ?
+            ");
+            $stmt->execute([$adjustment['difference'], $adjustment['material_id']]);
+
+            // Delete the adjustment record
+            $stmt = $this->db->prepare("DELETE FROM stock_adjustments WHERE id = ?");
+            $stmt->execute([$id]);
+
+            $this->db->commit();
+            return true;
+
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            throw $e;
+        }
     }
 }

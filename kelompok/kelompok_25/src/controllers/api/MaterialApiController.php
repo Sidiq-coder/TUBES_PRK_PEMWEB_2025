@@ -5,64 +5,89 @@
  * Menangani endpoint API untuk manajemen material
  */
 
-class MaterialApiController
+require_once ROOT_PATH . '/core/Controller.php';
+require_once ROOT_PATH . '/core/Response.php';
+require_once ROOT_PATH . '/core/Auth.php';
+require_once ROOT_PATH . '/models/Material.php';
+require_once ROOT_PATH . '/models/Category.php';
+require_once ROOT_PATH . '/models/MaterialImage.php';
+require_once ROOT_PATH . '/helpers/validation.php';
+
+class MaterialApiController extends Controller
 {
     private $materialModel;
     private $categoryModel;
-    private $supplierModel;
+    private $materialImageModel;
 
     public function __construct()
     {
+        AuthMiddleware::check();
+        
         $this->materialModel = new Material();
         $this->categoryModel = new Category();
-        $this->supplierModel = new Supplier();
+        $this->materialImageModel = new MaterialImage();
     }
 
     /**
-     * GET /api/materials
-     * Get all materials with pagination and filters
+     * GET /api/materials?page=1&per_page=10&search=&category_id=&status=
+     * Get all materials with pagination
      */
     public function index()
     {
         try {
-            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-            $perPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 20;
+            AuthMiddleware::check();
+
+            $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+            $perPage = isset($_GET['per_page']) ? min(100, intval($_GET['per_page'])) : 10;
+            $search = $_GET['search'] ?? '';
+            $categoryId = $_GET['category_id'] ?? '';
+            $status = $_GET['status'] ?? '';
+
+            $materials = $this->materialModel->getAllActive($page, $perPage, $search, $categoryId, $status);
+            $total = $this->materialModel->countActive($search, $categoryId, $status);
+            $lastPage = $total > 0 ? ceil($total / $perPage) : 1;
             
-            // Filters
-            $filters = [];
-            if (isset($_GET['category_id'])) {
-                $filters['category_id'] = (int)$_GET['category_id'];
-            }
-            if (isset($_GET['supplier_id'])) {
-                $filters['supplier_id'] = (int)$_GET['supplier_id'];
-            }
-            if (isset($_GET['stock_status'])) {
-                $filters['stock_status'] = $_GET['stock_status'];
+            // Add stock status and primary image to each material
+            if (is_array($materials)) {
+                foreach ($materials as &$material) {
+                    // Calculate stock status
+                    $currentStock = floatval($material['current_stock'] ?? 0);
+                    $minStock = floatval($material['min_stock'] ?? 0);
+                    
+                    if ($currentStock > $minStock) {
+                        $material['stock_status'] = 'Aman';
+                    } elseif ($currentStock > 0) {
+                        $material['stock_status'] = 'Hampir Habis';
+                    } else {
+                        $material['stock_status'] = 'Habis';
+                    }
+
+                    // Get primary image (with error handling)
+                    $material['image_url'] = null;
+                    if (isset($material['id'])) {
+                        try {
+                            $primaryImage = $this->materialImageModel->getPrimaryImage($material['id']);
+                            if ($primaryImage && isset($primaryImage['image_url'])) {
+                                $material['image_url'] = $primaryImage['image_url'];
+                            }
+                        } catch (Exception $e) {
+                            // Silently fail, image_url remains null
+                        }
+                    }
+                }
             }
 
-            $materials = $this->materialModel->getAll($page, $perPage, $filters);
-            $total = $this->materialModel->countAll($filters);
-
-            // Add stock status to each material
-            foreach ($materials as &$material) {
-                $material['stock_status'] = $this->getStockStatusLabel($material);
-                $material['stock_value'] = $material['current_stock'] * $material['unit_price'];
-            }
-
-            $this->logActivity('view', 'material', null, 'Viewed materials list');
-
-            Response::success([
-                'materials' => $materials,
-                'pagination' => [
-                    'total' => (int)$total,
-                    'per_page' => $perPage,
-                    'current_page' => $page,
-                    'total_pages' => ceil($total / $perPage)
-                ]
+            Response::success('Data material berhasil diambil', [
+                'data' => $materials ?: [],
+                'current_page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'last_page' => $lastPage
             ]);
 
         } catch (Exception $e) {
-            Response::error('Failed to fetch materials: ' . $e->getMessage(), 500);
+            error_log('Material index error: ' . $e->getMessage());
+            Response::error('Gagal mengambil data material: ' . $e->getMessage(), [], 500);
         }
     }
 
@@ -76,20 +101,85 @@ class MaterialApiController
             $material = $this->materialModel->findById($id);
 
             if (!$material) {
-                Response::error('Material not found', 404);
+                Response::error('Material tidak ditemukan', [], 404);
                 return;
             }
 
-            // Add additional info
-            $material['stock_status'] = $this->getStockStatusLabel($material);
-            $material['stock_value'] = $material['current_stock'] * $material['unit_price'];
+            // Add stock status
+            if ($material['current_stock'] > $material['min_stock']) {
+                $material['stock_status'] = 'Aman';
+            } elseif ($material['current_stock'] > 0) {
+                $material['stock_status'] = 'Hampir Habis';
+            } else {
+                $material['stock_status'] = 'Habis';
+            }
 
-            $this->logActivity('view', 'material', $id, "Viewed material: {$material['name']}");
-
-            Response::success(['material' => $material]);
+            Response::success('Detail material berhasil diambil', [
+                'data' => $material
+            ]);
 
         } catch (Exception $e) {
-            Response::error('Failed to fetch material: ' . $e->getMessage(), 500);
+            Response::error('Gagal mengambil detail material', [], 500);
+        }
+    }
+
+    /**
+     * GET /api/materials/report/stock
+     * Get stock report
+     */
+    public function stockReport()
+    {
+        try {
+            $search = $_GET['search'] ?? '';
+            $categoryFilter = $_GET['category'] ?? '';
+            $statusFilter = $_GET['status'] ?? '';
+
+            $materials = $this->materialModel->getStockReport($search, $categoryFilter, $statusFilter);
+
+            Response::success('Laporan stok berhasil diambil', [
+                'data' => $materials,
+                'total' => count($materials)
+            ]);
+
+        } catch (Exception $e) {
+            Response::error('Gagal mengambil laporan stok', [], 500);
+        }
+    }
+
+    /**
+     * GET /api/materials/summary
+     * Get stock summary
+     */
+    public function summary()
+    {
+        try {
+            $summary = $this->materialModel->getStockSummary();
+
+            Response::success('Ringkasan stok berhasil diambil', [
+                'data' => $summary
+            ]);
+
+        } catch (Exception $e) {
+            Response::error('Gagal mengambil ringkasan stok', [], 500);
+        }
+    }
+
+    /**
+     * GET /api/materials/categories
+     * Get available categories for materials
+     */
+    public function categories()
+    {
+        try {
+            $categories = $this->materialModel->getCategories();
+
+            Response::success('Daftar kategori berhasil diambil', [
+                'data' => $categories,
+                'total' => count($categories)
+            ]);
+
+        } catch (Exception $e) {
+            Response::error('Gagal mengambil daftar kategori', [], 500);
         }
     }
 
@@ -100,162 +190,135 @@ class MaterialApiController
     public function store()
     {
         try {
-            $data = json_decode(file_get_contents('php://input'), true);
+            AuthMiddleware::check();
 
-            // Validation
-            $errors = $this->validateMaterial($data);
-            if (!empty($errors)) {
-                Response::error('Validation failed', 422, ['errors' => $errors]);
+            $input = json_decode(file_get_contents('php://input'), true);
+            
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Response::error('Format JSON tidak valid', [], 400);
                 return;
             }
 
-            // Check if code exists
-            if ($this->materialModel->codeExists($data['code'])) {
-                Response::error('Material code already exists', 422, [
-                    'errors' => ['code' => 'Code already in use']
-                ]);
+            $validator = Validator::make($input, [
+                'name' => 'required|min:3|max:255',
+                'category_id' => 'required|numeric',
+                'unit' => 'required|max:50',
+                'min_stock' => 'required|numeric|min:0',
+                'code' => 'max:50',
+                'default_supplier_id' => 'numeric',
+                'current_stock' => 'numeric|min:0'
+            ]);
+
+            if (!$validator->validate()) {
+                Response::validationError($validator->errors(), 'Validasi gagal');
                 return;
             }
+
+            $validated = $validator->validated();
 
             // Check if category exists
-            if (!$this->categoryModel->findById($data['category_id'])) {
-                Response::error('Category not found', 422, [
-                    'errors' => ['category_id' => 'Category does not exist']
-                ]);
+            $category = $this->categoryModel->findById($validated['category_id']);
+            if (!$category) {
+                Response::error('Kategori tidak ditemukan', ['category_id' => ['Kategori tidak valid']], 422);
                 return;
             }
 
-            // Check if supplier exists (if provided)
-            if (!empty($data['default_supplier_id'])) {
-                if (!$this->supplierModel->findActive($data['default_supplier_id'])) {
-                    Response::error('Supplier not found', 422, [
-                        'errors' => ['default_supplier_id' => 'Supplier does not exist']
-                    ]);
-                    return;
-                }
-            }
+            // Create material
+            $materialId = $this->materialModel->create($validated);
+            $material = $this->materialModel->findById($materialId);
 
-            $materialId = $this->materialModel->create($data);
-
-            if ($materialId) {
-                $material = $this->materialModel->findById($materialId);
-                
-                $this->logActivity('create', 'material', $materialId, "Created material: {$data['name']}");
-                
-                Response::success([
-                    'message' => 'Material created successfully',
-                    'material' => $material
-                ], 201);
-            } else {
-                Response::error('Failed to create material', 500);
-            }
+            Response::created('Material berhasil ditambahkan', $material);
 
         } catch (Exception $e) {
-            Response::error('Failed to create material: ' . $e->getMessage(), 500);
+            Response::error('Terjadi kesalahan: ' . $e->getMessage(), [], 500);
         }
     }
 
     /**
-     * PUT /api/materials/:id
+     * POST /api/materials/:id
      * Update material
      */
     public function update($id)
     {
         try {
+            AuthMiddleware::check();
+
+            $id = intval($id);
+
+            // Check if material exists
+            if (!$this->materialModel->exists($id)) {
+                Response::notFound('Material tidak ditemukan');
+                return;
+            }
+
+            $input = json_decode(file_get_contents('php://input'), true);
+            
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Response::error('Format JSON tidak valid', [], 400);
+                return;
+            }
+
+            $validator = Validator::make($input, [
+                'name' => 'min:3|max:255',
+                'category_id' => 'numeric',
+                'unit' => 'max:50',
+                'min_stock' => 'numeric|min:0',
+                'code' => 'max:50',
+                'default_supplier_id' => 'numeric',
+                'current_stock' => 'numeric|min:0'
+            ]);
+
+            if (!$validator->validate()) {
+                Response::validationError($validator->errors(), 'Validasi gagal');
+                return;
+            }
+
+            $validated = $validator->validated();
+
+            // Check if category exists (if category_id is provided)
+            if (isset($validated['category_id'])) {
+                $category = $this->categoryModel->findById($validated['category_id']);
+                if (!$category) {
+                    Response::error('Kategori tidak ditemukan', ['category_id' => ['Kategori tidak valid']], 422);
+                    return;
+                }
+            }
+
+            // Update material
+            $this->materialModel->updateMaterial($id, $validated);
             $material = $this->materialModel->findById($id);
 
-            if (!$material) {
-                Response::error('Material not found', 404);
-                return;
-            }
-
-            $data = json_decode(file_get_contents('php://input'), true);
-
-            // Validation
-            $errors = $this->validateMaterial($data, $id);
-            if (!empty($errors)) {
-                Response::error('Validation failed', 422, ['errors' => $errors]);
-                return;
-            }
-
-            // Check if code exists (except current)
-            if (isset($data['code']) && $this->materialModel->codeExists($data['code'], $id)) {
-                Response::error('Material code already exists', 422, [
-                    'errors' => ['code' => 'Code already in use']
-                ]);
-                return;
-            }
-
-            // Check if category exists
-            if (isset($data['category_id']) && !$this->categoryModel->findById($data['category_id'])) {
-                Response::error('Category not found', 422, [
-                    'errors' => ['category_id' => 'Category does not exist']
-                ]);
-                return;
-            }
-
-            // Check if supplier exists
-            if (!empty($data['default_supplier_id']) && !$this->supplierModel->findActive($data['default_supplier_id'])) {
-                Response::error('Supplier not found', 422, [
-                    'errors' => ['default_supplier_id' => 'Supplier does not exist']
-                ]);
-                return;
-            }
-
-            $success = $this->materialModel->updateMaterial($id, $data);
-
-            if ($success) {
-                $updatedMaterial = $this->materialModel->findById($id);
-                
-                $this->logActivity('update', 'material', $id, "Updated material: {$updatedMaterial['name']}");
-                
-                Response::success([
-                    'message' => 'Material updated successfully',
-                    'material' => $updatedMaterial
-                ]);
-            } else {
-                Response::error('Failed to update material', 500);
-            }
+            Response::success('Material berhasil diperbarui', $material);
 
         } catch (Exception $e) {
-            Response::error('Failed to update material: ' . $e->getMessage(), 500);
+            Response::error('Terjadi kesalahan: ' . $e->getMessage(), [], 500);
         }
     }
 
     /**
-     * DELETE /api/materials/:id
-     * Soft delete material
+     * POST /api/materials/:id/delete
+     * Delete material (soft delete)
      */
     public function destroy($id)
     {
         try {
-            $material = $this->materialModel->findById($id);
+            AuthMiddleware::check();
 
-            if (!$material) {
-                Response::error('Material not found', 404);
+            $id = intval($id);
+
+            // Check if material exists
+            if (!$this->materialModel->exists($id)) {
+                Response::notFound('Material tidak ditemukan');
                 return;
             }
 
-            // Check if material has transactions
-            if ($this->materialModel->hasTransactions($id)) {
-                Response::error('Cannot delete material with existing transactions', 400, [
-                    'message' => 'This material has stock transaction history and cannot be deleted'
-                ]);
-                return;
-            }
+            // Soft delete material
+            $this->materialModel->softDelete($id);
 
-            $success = $this->materialModel->delete($id);
-
-            if ($success) {
-                $this->logActivity('delete', 'material', $id, "Deleted material: {$material['name']}");
-                
-                Response::success(['message' => 'Material deleted successfully']);
-            } else {
-                Response::error('Failed to delete material', 500);
-            }
+            Response::success('Material berhasil dihapus', []);
 
         } catch (Exception $e) {
-            Response::error('Failed to delete material: ' . $e->getMessage(), 500);
+            Response::error('Terjadi kesalahan: ' . $e->getMessage(), [], 500);
         }
     }
 
@@ -266,314 +329,29 @@ class MaterialApiController
     public function search()
     {
         try {
-            $keyword = $_GET['q'] ?? '';
-            
-            if (empty($keyword)) {
-                Response::error('Search keyword is required', 422);
-                return;
-            }
+            $search = $_GET['search'] ?? '';
+            $categoryId = $_GET['category_id'] ?? '';
+            $status = $_GET['status'] ?? '';
 
-            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-            $perPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 20;
-
-            $materials = $this->materialModel->search($keyword, $page, $perPage);
-            $total = $this->materialModel->countSearch($keyword);
-
-            // Add stock status
-            foreach ($materials as &$material) {
-                $material['stock_status'] = $this->getStockStatusLabel($material);
-                $material['stock_value'] = $material['current_stock'] * $material['unit_price'];
-            }
-
-            $this->logActivity('search', 'material', null, "Searched materials: {$keyword}");
-
-            Response::success([
-                'materials' => $materials,
-                'pagination' => [
-                    'total' => (int)$total,
-                    'per_page' => $perPage,
-                    'current_page' => $page,
-                    'total_pages' => ceil($total / $perPage)
-                ],
-                'keyword' => $keyword
-            ]);
-
-        } catch (Exception $e) {
-            Response::error('Failed to search materials: ' . $e->getMessage(), 500);
-        }
-    }
-
-    /**
-     * GET /api/materials/low-stock
-     * Get low stock materials
-     */
-    public function lowStock()
-    {
-        try {
-            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-            $perPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 20;
-
-            $materials = $this->materialModel->getLowStock($page, $perPage);
-            $total = $this->materialModel->countLowStock();
+            $materials = $this->materialModel->getStockReport($search, $categoryId, $status);
 
             foreach ($materials as &$material) {
-                $material['stock_status'] = $this->getStockStatusLabel($material);
-                $material['stock_value'] = $material['current_stock'] * $material['unit_price'];
+                if ($material['current_stock'] > $material['min_stock']) {
+                    $material['stock_status'] = 'Aman';
+                } elseif ($material['current_stock'] > 0) {
+                    $material['stock_status'] = 'Hampir Habis';
+                } else {
+                    $material['stock_status'] = 'Habis';
+                }
             }
 
-            $this->logActivity('view', 'material', null, 'Viewed low stock materials');
-
-            Response::success([
-                'materials' => $materials,
-                'pagination' => [
-                    'total' => (int)$total,
-                    'per_page' => $perPage,
-                    'current_page' => $page,
-                    'total_pages' => ceil($total / $perPage)
-                ]
-            ]);
-
-        } catch (Exception $e) {
-            Response::error('Failed to fetch low stock materials: ' . $e->getMessage(), 500);
-        }
-    }
-
-    /**
-     * GET /api/materials/out-of-stock
-     * Get out of stock materials
-     */
-    public function outOfStock()
-    {
-        try {
-            $materials = $this->materialModel->getOutOfStock();
-
-            foreach ($materials as &$material) {
-                $material['stock_status'] = 'empty';
-                $material['stock_value'] = 0;
-            }
-
-            $this->logActivity('view', 'material', null, 'Viewed out of stock materials');
-
-            Response::success([
-                'materials' => $materials,
+            Response::success('Hasil pencarian material', [
+                'data' => $materials,
                 'total' => count($materials)
             ]);
 
         } catch (Exception $e) {
-            Response::error('Failed to fetch out of stock materials: ' . $e->getMessage(), 500);
-        }
-    }
-
-    /**
-     * GET /api/materials/stats
-     * Get material statistics
-     */
-    public function stats()
-    {
-        try {
-            $stats = $this->materialModel->getStats();
-
-            $this->logActivity('view', 'material', null, 'Viewed material statistics');
-
-            Response::success(['stats' => $stats]);
-
-        } catch (Exception $e) {
-            Response::error('Failed to fetch statistics: ' . $e->getMessage(), 500);
-        }
-    }
-
-    /**
-     * GET /api/materials/category/:categoryId
-     * Get materials by category
-     */
-    public function byCategory($categoryId)
-    {
-        try {
-            $category = $this->categoryModel->findById($categoryId);
-
-            if (!$category) {
-                Response::error('Category not found', 404);
-                return;
-            }
-
-            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-            $perPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 20;
-
-            $materials = $this->materialModel->getByCategory($categoryId, $page, $perPage);
-            $filters = ['category_id' => $categoryId];
-            $total = $this->materialModel->countAll($filters);
-
-            foreach ($materials as &$material) {
-                $material['stock_status'] = $this->getStockStatusLabel($material);
-                $material['stock_value'] = $material['current_stock'] * $material['unit_price'];
-            }
-
-            Response::success([
-                'category' => $category,
-                'materials' => $materials,
-                'pagination' => [
-                    'total' => (int)$total,
-                    'per_page' => $perPage,
-                    'current_page' => $page,
-                    'total_pages' => ceil($total / $perPage)
-                ]
-            ]);
-
-        } catch (Exception $e) {
-            Response::error('Failed to fetch materials: ' . $e->getMessage(), 500);
-        }
-    }
-
-    /**
-     * GET /api/materials/supplier/:supplierId
-     * Get materials by supplier
-     */
-    public function bySupplier($supplierId)
-    {
-        try {
-            $supplier = $this->supplierModel->findActive($supplierId);
-
-            if (!$supplier) {
-                Response::error('Supplier not found', 404);
-                return;
-            }
-
-            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-            $perPage = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 20;
-
-            $materials = $this->materialModel->getBySupplier($supplierId, $page, $perPage);
-            $filters = ['supplier_id' => $supplierId];
-            $total = $this->materialModel->countAll($filters);
-
-            foreach ($materials as &$material) {
-                $material['stock_status'] = $this->getStockStatusLabel($material);
-                $material['stock_value'] = $material['current_stock'] * $material['unit_price'];
-            }
-
-            Response::success([
-                'supplier' => $supplier,
-                'materials' => $materials,
-                'pagination' => [
-                    'total' => (int)$total,
-                    'per_page' => $perPage,
-                    'current_page' => $page,
-                    'total_pages' => ceil($total / $perPage)
-                ]
-            ]);
-
-        } catch (Exception $e) {
-            Response::error('Failed to fetch materials: ' . $e->getMessage(), 500);
-        }
-    }
-
-    /**
-     * Validate material data
-     */
-    private function validateMaterial($data, $id = null)
-    {
-        $errors = [];
-
-        // Code validation
-        if (empty($data['code'])) {
-            $errors['code'] = 'Material code is required';
-        } elseif (!preg_match('/^[A-Z0-9\-]+$/', $data['code'])) {
-            $errors['code'] = 'Code must contain only uppercase letters, numbers, and hyphens';
-        } elseif (strlen($data['code']) < 2 || strlen($data['code']) > 20) {
-            $errors['code'] = 'Code must be between 2 and 20 characters';
-        }
-
-        // Name validation
-        if (empty($data['name'])) {
-            $errors['name'] = 'Material name is required';
-        } elseif (strlen($data['name']) < 3 || strlen($data['name']) > 100) {
-            $errors['name'] = 'Name must be between 3 and 100 characters';
-        }
-
-        // Category validation
-        if (empty($data['category_id'])) {
-            $errors['category_id'] = 'Category is required';
-        } elseif (!is_numeric($data['category_id']) || $data['category_id'] <= 0) {
-            $errors['category_id'] = 'Invalid category ID';
-        }
-
-        // Unit validation
-        if (empty($data['unit'])) {
-            $errors['unit'] = 'Unit is required';
-        } elseif (!in_array($data['unit'], ['pcs', 'kg', 'liter', 'meter', 'box', 'pack'])) {
-            $errors['unit'] = 'Invalid unit. Allowed: pcs, kg, liter, meter, box, pack';
-        }
-
-        // Min stock validation
-        if (!isset($data['min_stock'])) {
-            $errors['min_stock'] = 'Minimum stock is required';
-        } elseif (!is_numeric($data['min_stock']) || $data['min_stock'] < 0) {
-            $errors['min_stock'] = 'Minimum stock must be a positive number';
-        }
-
-        // Current stock validation (only for create)
-        if ($id === null && isset($data['current_stock'])) {
-            if (!is_numeric($data['current_stock']) || $data['current_stock'] < 0) {
-                $errors['current_stock'] = 'Current stock must be a positive number';
-            }
-        }
-
-        // Unit price validation
-        if (!isset($data['unit_price'])) {
-            $errors['unit_price'] = 'Unit price is required';
-        } elseif (!is_numeric($data['unit_price']) || $data['unit_price'] < 0) {
-            $errors['unit_price'] = 'Unit price must be a positive number';
-        }
-
-        // Reorder point validation
-        if (isset($data['reorder_point'])) {
-            if (!is_numeric($data['reorder_point']) || $data['reorder_point'] < 0) {
-                $errors['reorder_point'] = 'Reorder point must be a positive number';
-            }
-        }
-
-        // Supplier validation (optional)
-        if (!empty($data['default_supplier_id'])) {
-            if (!is_numeric($data['default_supplier_id']) || $data['default_supplier_id'] <= 0) {
-                $errors['default_supplier_id'] = 'Invalid supplier ID';
-            }
-        }
-
-        return $errors;
-    }
-
-    /**
-     * Get stock status label
-     */
-    private function getStockStatusLabel($material)
-    {
-        if ($material['current_stock'] == 0) {
-            return 'empty';
-        } elseif ($material['current_stock'] <= $material['min_stock']) {
-            return 'low';
-        } elseif ($material['current_stock'] <= $material['reorder_point']) {
-            return 'warning';
-        } else {
-            return 'normal';
-        }
-    }
-
-    /**
-     * Log activity
-     */
-    private function logActivity($action, $entity, $entityId, $description)
-    {
-        try {
-            $userId = Auth::id();
-            
-            $sql = "INSERT INTO activity_logs (user_id, action, entity_type, entity_id, description, created_at) 
-                    VALUES (?, ?, ?, ?, ?, NOW())";
-            
-            $db = Database::getInstance()->getConnection();
-            $stmt = $db->prepare($sql);
-            $stmt->execute([$userId, $action, $entity, $entityId, $description]);
-        } catch (Exception $e) {
-            // Silent fail - logging should not break the main flow
-            error_log("Failed to log activity: " . $e->getMessage());
+            Response::error('Gagal melakukan pencarian', [], 500);
         }
     }
 }
