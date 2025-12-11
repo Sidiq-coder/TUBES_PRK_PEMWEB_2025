@@ -14,6 +14,9 @@ class Auth
         // Regenerate session ID to prevent session fixation
         session_regenerate_id(true);
         
+        // Get user permissions
+        $permissions = self::getUserPermissions($user['id']);
+        
         // Set session data
         $_SESSION['user'] = [
             'id' => $user['id'],
@@ -23,6 +26,7 @@ class Auth
             'role_code' => $user['role_code'],
             'role_name' => $user['role_name'],
             'avatar_url' => $user['avatar_url'] ?? null,
+            'permissions' => $permissions,
         ];
         
         // Mark session as authenticated
@@ -224,6 +228,33 @@ class Auth
         }
 
         return false;
+    }
+
+    /**
+     * Get user permissions from database
+     */
+    private static function getUserPermissions($userId)
+    {
+        try {
+            $db = Database::getInstance()->getConnection();
+            $stmt = $db->prepare("
+                SELECT DISTINCT p.code
+                FROM permissions p
+                INNER JOIN role_permissions rp ON p.id = rp.permission_id
+                INNER JOIN user_roles ur ON rp.role_id = ur.role_id
+                WHERE ur.user_id = ? AND p.is_active = 1
+            ");
+            $stmt->execute([$userId]);
+            
+            $permissions = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $permissions[] = $row['code'];
+            }
+            
+            return $permissions;
+        } catch (Exception $e) {
+            return [];
+        }
     }
 
     /**

@@ -209,7 +209,6 @@ class StockIn extends Model
         $dateColumnName = $this->getDateColumnName();
 
         $columns = [
-            'reference_number',
             'material_id',
             'supplier_id',
             'quantity',
@@ -218,7 +217,6 @@ class StockIn extends Model
         ];
         $placeholders = array_fill(0, count($columns), '?');
         $values = [
-            $data['reference_number'],
             $data['material_id'],
             $data['supplier_id'],
             $data['quantity'],
@@ -231,11 +229,6 @@ class StockIn extends Model
             $placeholders[] = '?';
             $values[] = $data['transaction_date'];
         }
-
-        // Map notes/invoice_number to actual 'note' column
-        $columns[] = 'note';
-        $placeholders[] = '?';
-        $values[] = $data['notes'] ?? $data['invoice_number'] ?? null;
 
         $columns[] = 'created_by';
         $placeholders[] = '?';
@@ -616,5 +609,30 @@ class StockIn extends Model
         $stmt = $this->query($sql, $params);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         return $result['total'] ?? 0;
+    }
+
+    /**
+     * Get recent stock in transactions
+     */
+    public function getRecent($limit = 5)
+    {
+        $dateColumn = $this->getDateColumnName();
+        
+        $sql = "SELECT 
+                    si.id,
+                    si.quantity,
+                    si.unit_price,
+                    si.{$dateColumn} as txn_date,
+                    m.name as material_name,
+                    m.unit,
+                    s.name as supplier_name
+                FROM {$this->table} si
+                INNER JOIN materials m ON si.material_id = m.id
+                LEFT JOIN suppliers s ON si.supplier_id = s.id
+                ORDER BY si.created_at DESC
+                LIMIT ?";
+        
+        $stmt = $this->query($sql, [$limit]);
+        return $stmt->fetchAll();
     }
 }

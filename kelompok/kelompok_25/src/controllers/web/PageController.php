@@ -216,7 +216,7 @@ class PageController extends Controller
 
     public function roles()
     {
-        $this->view('roles/index', ['title' => 'Manajemen Role']);
+        $this->view('roles/index', ['title' => 'Role & Hak Akses']);
     }
 
     public function users()
@@ -226,6 +226,33 @@ class PageController extends Controller
 
     public function profile()
     {
-        $this->renderPlaceholder('Profil Saya', 'Perbarui informasi profil pribadi Anda di halaman ini.');
+        try {
+            require_once ROOT_PATH . '/models/User.php';
+            require_once ROOT_PATH . '/models/ActivityLog.php';
+            require_once ROOT_PATH . '/core/Auth.php';
+
+            $userId = Auth::id();
+            $userModel = new User();
+            $activityLogModel = new ActivityLog();
+            
+            // Get user data with roles
+            $user = $userModel->findWithRoles($userId);
+            
+            // Get recent activities
+            $activities = $activityLogModel->getByUser($userId, 10);
+
+            $this->view('profile/index', [
+                'title' => 'Profil Saya',
+                'user' => $user ?? [],
+                'activities' => $activities ?? []
+            ]);
+        } catch (Exception $e) {
+            error_log("Profile Error: " . $e->getMessage());
+            $this->view('profile/index', [
+                'title' => 'Profil Saya',
+                'user' => [],
+                'activities' => []
+            ]);
+        }
     }
 }

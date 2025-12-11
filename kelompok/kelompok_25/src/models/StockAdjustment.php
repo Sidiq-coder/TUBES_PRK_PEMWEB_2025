@@ -52,14 +52,11 @@ class StockAdjustment
             // insert adjustment record
             $ins = $this->db->prepare("
                 INSERT INTO stock_adjustments
-                (material_id, old_stock, new_stock, difference, reason, adjustment_date, created_by)
-                VALUES (:material_id, :old_stock, :new_stock, :difference, :reason, CURDATE(), :created_by)
+                (material_id, reason, adjustment_date, created_by)
+                VALUES (:material_id, :reason, CURDATE(), :created_by)
             ");
             $ins->execute([
                 ':material_id' => (int)$data['material_id'],
-                ':old_stock' => $oldStock,
-                ':new_stock' => $newStock,
-                ':difference' => $difference,
                 ':reason' => $data['reason'],
                 ':created_by' => (int)$data['created_by']
             ]);

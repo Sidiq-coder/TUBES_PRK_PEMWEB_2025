@@ -1,43 +1,65 @@
 <?php
-$menuSections = [
+// Define all menu items with their required permissions
+$allMenuSections = [
     [
         'label' => 'Dashboard',
         'items' => [
-            ['label' => 'Dashboard', 'icon' => 'chart-bar', 'href' => url('/dashboard')],
+            ['label' => 'Dashboard', 'icon' => 'chart-bar', 'href' => url('/dashboard'), 'permission' => 'view_dashboard'],
         ]
     ],
     [
         'label' => 'Data Master',
         'items' => [
-            ['label' => 'Bahan Baku', 'icon' => 'cube', 'href' => url('/materials')],
-            ['label' => 'Supplier', 'icon' => 'truck', 'href' => url('/suppliers')],
-            ['label' => 'Kategori', 'icon' => 'tag', 'href' => url('/categories')],
+            ['label' => 'Bahan Baku', 'icon' => 'cube', 'href' => url('/materials'), 'permission' => 'view_materials'],
+            ['label' => 'Supplier', 'icon' => 'truck', 'href' => url('/suppliers'), 'permission' => 'view_suppliers'],
+            ['label' => 'Kategori', 'icon' => 'tag', 'href' => url('/categories'), 'permission' => 'view_categories'],
         ]
     ],
     [
         'label' => 'Transaksi Stok',
         'items' => [
-            ['label' => 'Stok Masuk', 'icon' => 'arrow-down', 'href' => url('/stock-in')],
-            ['label' => 'Stok Keluar', 'icon' => 'arrow-up', 'href' => url('/stock-out')],
-            ['label' => 'Penyesuaian Stok', 'icon' => 'adjustments', 'href' => url('/stock-adjustments')],
+            ['label' => 'Stok Masuk', 'icon' => 'arrow-down', 'href' => url('/stock-in'), 'permission' => 'view_stock_in'],
+            ['label' => 'Stok Keluar', 'icon' => 'arrow-up', 'href' => url('/stock-out'), 'permission' => 'view_stock_out'],
+            ['label' => 'Penyesuaian Stok', 'icon' => 'adjustments', 'href' => url('/stock-adjustments'), 'permission' => 'view_stock_adjustments'],
         ]
     ],
     [
         'label' => 'Laporan',
         'items' => [
-            ['label' => 'Laporan Stok', 'icon' => 'document', 'href' => url('/reports/stock')],
-            ['label' => 'Laporan Transaksi', 'icon' => 'document-text', 'href' => url('/reports/transactions')],
-            ['label' => 'Bahan Hampir Habis', 'icon' => 'warning', 'href' => url('/reports/low-stock')],
+            ['label' => 'Laporan Stok', 'icon' => 'document', 'href' => url('/reports/stock'), 'permission' => 'view_reports'],
+            ['label' => 'Laporan Transaksi', 'icon' => 'document-text', 'href' => url('/reports/transactions'), 'permission' => 'view_reports'],
+            ['label' => 'Bahan Hampir Habis', 'icon' => 'warning', 'href' => url('/reports/low-stock'), 'permission' => 'view_low_stock'],
         ]
     ],
     [
         'label' => 'Pengaturan',
         'items' => [
-            ['label' => 'Manajemen Role', 'icon' => 'shield', 'href' => url('/roles')],
-            ['label' => 'Profil Saya', 'icon' => 'user', 'href' => url('/profile')],
+            ['label' => 'Manajemen Pengguna', 'icon' => 'users', 'href' => url('/users'), 'permission' => 'view_users'],
+            ['label' => 'Profil Saya', 'icon' => 'user', 'href' => url('/profile'), 'permission' => null], // Always visible
         ]
     ],
 ];
+
+// Filter menu sections based on user permissions
+$menuSections = [];
+foreach ($allMenuSections as $section) {
+    $visibleItems = [];
+    
+    foreach ($section['items'] as $item) {
+        // If no permission required or user has the permission, show the item
+        if ($item['permission'] === null || has_permission($item['permission'])) {
+            $visibleItems[] = $item;
+        }
+    }
+    
+    // Only add section if it has visible items
+    if (!empty($visibleItems)) {
+        $menuSections[] = [
+            'label' => $section['label'],
+            'items' => $visibleItems
+        ];
+    }
+}
 
 function renderSidebarIcon($icon)
 {
@@ -54,6 +76,7 @@ function renderSidebarIcon($icon)
         'warning' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M4.93 19h14.14a2 2 0 001.73-3l-7.07-12a2 2 0 00-3.46 0l-7.07 12a2 2 0 001.73 3z" />',
         'shield' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />',
         'user' => '<path stroke-linecap="round" stroke-linejoin="round" d="M16 14a4 4 0 10-8 0m8 0v4H8v-4m8 0H8" />',
+        'users' => '<path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />',
         'logout' => '<path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />',
     ];
 
@@ -61,25 +84,31 @@ function renderSidebarIcon($icon)
 }
 ?>
 
-<aside class="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col">
+<aside class="fixed left-0 top-16 bottom-0 w-64 bg-white border-r border-gray-200 hidden md:flex flex-col z-10">
     <div class="px-6 py-5 border-b border-gray-200">
         <p class="text-xs text-gray-500 uppercase tracking-wider">Inventory</p>
         <p class="text-lg font-semibold text-gray-900 mt-1">Stok Bahan Baku</p>
     </div>
 
     <nav class="flex-1 overflow-y-auto px-4 py-6 space-y-5">
-        <?php foreach ($menuSections as $section): ?>
+        <?php 
+        $currentPath = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        foreach ($menuSections as $section): 
+        ?>
             <div>
                 <p class="px-2 text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2"><?= e($section['label']) ?></p>
                 <div class="space-y-1">
-                    <?php foreach ($section['items'] as $item): ?>
-                        <a href="<?= $item['href'] ?>" class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition sidebar-link">
-                            <span class="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-gray-500">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                    <?php foreach ($section['items'] as $item): 
+                        $itemPath = parse_url($item['href'], PHP_URL_PATH);
+                        $isActive = ($currentPath === $itemPath);
+                    ?>
+                        <a href="<?= $item['href'] ?>" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 <?= $isActive ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/30' : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900' ?>">
+                            <span class="flex h-9 w-9 items-center justify-center rounded-lg <?= $isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600' ?>">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <?= renderSidebarIcon($item['icon']) ?>
                                 </svg>
                             </span>
-                            <?= e($item['label']) ?>
+                            <span class="<?= $isActive ? 'font-semibold' : 'font-medium' ?>"><?= e($item['label']) ?></span>
                         </a>
                     <?php endforeach; ?>
                 </div>

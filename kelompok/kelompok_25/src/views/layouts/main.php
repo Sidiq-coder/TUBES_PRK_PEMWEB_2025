@@ -10,10 +10,10 @@
 <body class="bg-slate-100 min-h-screen text-slate-800">
     <?php include ROOT_PATH . '/views/partials/navbar.php'; ?>
 
-    <div class="flex min-h-[calc(100vh-64px)]">
+    <div class="flex min-h-screen pt-16">
         <?php include ROOT_PATH . '/views/partials/sidebar.php'; ?>
 
-        <main class="flex-1 bg-white">
+        <main class="flex-1 bg-white md:ml-64">
             <?= $content ?? '' ?>
         </main>
     </div>

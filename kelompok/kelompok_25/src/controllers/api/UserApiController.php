@@ -104,8 +104,7 @@ class UserApiController extends Controller
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => $validated['password'],
-            'is_active' => isset($input['is_active']) ? (int)$input['is_active'] : 1,
-            'avatar_url' => $input['avatar_url'] ?? null
+            'is_active' => isset($input['is_active']) ? (int)$input['is_active'] : 1
         ];
 
         $this->userModel->beginTransaction();
@@ -156,8 +155,7 @@ class UserApiController extends Controller
 
         $updateData = [
             'name' => $validated['name'],
-            'email' => $validated['email'],
-            'avatar_url' => $input['avatar_url'] ?? $existing['avatar_url'] ?? null
+            'email' => $validated['email']
         ];
 
         if (array_key_exists('is_active', $input)) {
@@ -264,6 +262,72 @@ class UserApiController extends Controller
         $this->logActivity('update', 'user', $id, "Updated user role to {$roleId}");
 
         Response::success('User role updated successfully');
+    }
+
+    /**
+     * POST /api/users/{id}/upload-avatar
+     */
+    public function uploadAvatar($id)
+    {
+        $existing = $this->userModel->find($id);
+        if (!$existing) {
+            Response::notFound('User not found');
+        }
+
+        if (!isset($_FILES['avatar']) || $_FILES['avatar']['error'] !== UPLOAD_ERR_OK) {
+            Response::validationError(['avatar' => 'File tidak ditemukan atau terjadi kesalahan upload']);
+        }
+
+        $file = $_FILES['avatar'];
+
+        // Validate file type
+        $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+        if (!in_array($file['type'], $allowedTypes)) {
+            Response::validationError(['avatar' => 'File harus berupa gambar (JPG, PNG, GIF)']);
+        }
+
+        // Validate file size (max 2MB)
+        if ($file['size'] > 2 * 1024 * 1024) {
+            Response::validationError(['avatar' => 'Ukuran file maksimal 2MB']);
+        }
+
+        // Create uploads directory if not exists
+        $uploadDir = ROOT_PATH . '/public/uploads/avatars';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        // Generate unique filename
+        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $filename = 'avatar_' . $id . '_' . time() . '.' . $extension;
+        $filepath = $uploadDir . '/' . $filename;
+
+        // Move uploaded file
+        if (!move_uploaded_file($file['tmp_name'], $filepath)) {
+            Response::error('Gagal menyimpan file');
+        }
+
+        // Get old avatar to delete
+        $oldAvatar = $existing['avatar_url'] ?? null;
+
+        // Update user avatar_url
+        $avatarUrl = '/uploads/avatars/' . $filename;
+        $result = $this->userModel->updateUser($id, ['avatar_url' => $avatarUrl]);
+
+        if ($result) {
+            // Delete old avatar file if exists
+            if ($oldAvatar && file_exists(ROOT_PATH . '/public' . $oldAvatar)) {
+                @unlink(ROOT_PATH . '/public' . $oldAvatar);
+            }
+
+            $this->logActivity('avatar_updated', 'user', $id, 'Upload foto profil user');
+
+            Response::success('Foto profil berhasil diupload', ['avatar_url' => $avatarUrl]);
+        } else {
+            // Delete uploaded file if database update fails
+            @unlink($filepath);
+            Response::error('Gagal memperbarui database');
+        }
     }
 
     /**

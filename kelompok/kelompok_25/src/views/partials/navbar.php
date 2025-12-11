@@ -2,7 +2,7 @@
 $user = current_user();
 ?>
 
-<nav class="bg-white border-b border-slate-200 h-16 flex items-center px-6 justify-between shadow-sm">
+<nav class="fixed top-0 left-0 right-0 bg-white border-b border-slate-200 h-16 flex items-center px-6 justify-between shadow-sm z-20">
     <div class="flex items-center gap-3">
         <div class="h-10 w-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-semibold">IM</div>
         <div>

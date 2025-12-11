@@ -98,43 +98,49 @@ const RoleManagement = (function() {
             const statusClass = role.is_active == 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
             const statusText = role.is_active == 1 ? 'active' : 'inactive';
             
+            // Get permission names for this role
+            const permissionNames = role.permission_names ? role.permission_names.split(',').slice(0, 3) : [];
+            const permissionCount = role.permission_count || 0;
+            const permissionText = permissionNames.length > 0 
+                ? permissionNames.map(p => escapeHtml(p)).join(', ') + (permissionCount > 3 ? ` +${permissionCount - 3} lainnya` : '')
+                : 'Tidak ada izin';
+            
+            const userCount = role.user_count || 0;
+            
             return `
                 <article class="rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow">
-                    <div class="${colorClass} p-6 text-white flex items-center justify-between">
+                    <div class="${colorClass} p-6 text-white">
                         <div class="flex items-center gap-3">
                             <div class="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center text-2xl">
                                 🔒
                             </div>
                             <div>
                                 <h3 class="font-semibold text-lg">${escapeHtml(role.name)}</h3>
+                                <p class="text-xs opacity-80">Code: ${escapeHtml(role.code)}</p>
                             </div>
-                        </div>
-                        <div class="flex gap-2">
-                            <button onclick="RoleManagement.showEditModal(${role.id})" class="w-8 h-8 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg flex items-center justify-center transition">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-                                </svg>
-                            </button>
-                            <button onclick="RoleManagement.showDeleteModal(${role.id})" class="w-8 h-8 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg flex items-center justify-center transition">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                </svg>
-                            </button>
                         </div>
                     </div>
                     <div class="p-5 space-y-3">
-                        <p class="text-sm text-slate-600">${escapeHtml(role.description || 'Tidak ada deskripsi')}</p>
-                        <div class="pt-3 border-t border-slate-100">
-                            <p class="text-xs text-slate-500 mb-2">User dengan role ini:</p>
-                            <p class="text-2xl font-semibold text-slate-800">0 <span class="text-sm text-slate-500 font-normal">User</span></p>
+                        <div>
+                            <p class="text-xs text-slate-500 mb-1">Deskripsi:</p>
+                            <p class="text-sm text-slate-600">${escapeHtml(role.description || 'Tidak ada deskripsi')}</p>
                         </div>
                         <div class="pt-3 border-t border-slate-100">
-                            <p class="text-xs text-slate-500 mb-2">Izin Akses:</p>
-                            <p class="text-sm text-slate-700">Dashboard, Data Bahan Baku, Data Supplier</p>
+                            <p class="text-xs text-slate-500 mb-2">👥 User dengan role ini:</p>
+                            <p class="text-2xl font-semibold text-indigo-600">${userCount} <span class="text-sm text-slate-500 font-normal">User</span></p>
+                        </div>
+                        <div class="pt-3 border-t border-slate-100">
+                            <p class="text-xs text-slate-500 mb-2">🔑 Izin Akses (${permissionCount}):</p>
+                            <p class="text-sm text-slate-700">${permissionText}</p>
                         </div>
                         <div class="pt-3 border-t border-slate-100">
                             <p class="text-xs text-slate-500 mb-2">Status:</p>
                             <span class="inline-flex px-3 py-1 text-xs font-medium rounded-full ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="pt-3 border-t border-slate-100">
+                            <button onclick="RoleManagement.showDetailModal(${role.id})" class="w-full px-4 py-2 bg-indigo-50 text-indigo-600 text-sm font-medium rounded-lg hover:bg-indigo-100 transition">
+                                Lihat Detail
+                            </button>
                         </div>
                     </div>
                 </article>
@@ -344,7 +350,97 @@ const RoleManagement = (function() {
         init();
     }
 
+    async function showDetailModal(roleId) {
+        try {
+            const response = await fetch(`/api/roles/${roleId}`);
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.message);
+            }
+
+            const role = result.data;
+            
+            // Get users with this role (only active users)
+            const usersResponse = await fetch(`/api/users?role_id=${roleId}&is_active=1&per_page=100`);
+            const usersResult = await usersResponse.json();
+            const users = usersResult.success ? (usersResult.data.data || []) : [];
+
+            // Get permissions for this role
+            const permissionIds = role.permission_ids || [];
+            const permissions = allPermissions.filter(p => permissionIds.includes(p.id));
+
+            // Create modal content
+            const modalHtml = `
+                <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4" onclick="this.remove()">
+                    <div class="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+                        <div class="p-6 border-b border-slate-200 flex justify-between items-center">
+                            <div>
+                                <h2 class="text-xl font-semibold text-slate-800">${escapeHtml(role.name)}</h2>
+                                <p class="text-sm text-slate-500">Code: ${escapeHtml(role.code)}</p>
+                            </div>
+                            <button onclick="this.closest('.fixed').remove()" class="text-slate-400 hover:text-slate-600">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div class="p-6 space-y-6">
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-700 mb-2">Deskripsi</h3>
+                                <p class="text-sm text-slate-600">${escapeHtml(role.description || 'Tidak ada deskripsi')}</p>
+                            </div>
+
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-700 mb-3">👥 User dengan Role ini (${users.length})</h3>
+                                ${users.length > 0 ? `
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        ${users.map(user => `
+                                            <div class="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                                                <div class="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-semibold text-sm">
+                                                    ${user.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm font-medium text-slate-700 truncate">${escapeHtml(user.name)}</p>
+                                                    <p class="text-xs text-slate-500 truncate">${escapeHtml(user.email)}</p>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : '<p class="text-sm text-slate-500">Belum ada user dengan role ini</p>'}
+                            </div>
+
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-700 mb-3">🔑 Hak Akses (${permissions.length})</h3>
+                                ${permissions.length > 0 ? `
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        ${permissions.map(perm => `
+                                            <div class="flex items-center gap-2 p-2 bg-green-50 rounded-lg">
+                                                <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                                </svg>
+                                                <span class="text-sm text-slate-700">${escapeHtml(perm.name)}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : '<p class="text-sm text-slate-500">Tidak ada hak akses</p>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        } catch (error) {
+            console.error('Error loading role detail:', error);
+            showToast('error', 'Gagal', 'Gagal memuat detail role');
+        }
+    }
+
     return {
+        showDetailModal,
         showCreateModal,
         showEditModal,
         showDeleteModal,
