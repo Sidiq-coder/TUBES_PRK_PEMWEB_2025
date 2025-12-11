@@ -26,21 +26,8 @@ class StockOut
         $stmt->execute();
         $count = (int)$stmt->fetchColumn() + 1;
         $ref = sprintf('SO-%s-%03d', $date, $count);
-
-        // ensure unique (rare collision if concurrent) — loop until unique
-        $i = 0;
-        while ($i < 10) {
-            $stmt = $this->db->prepare("SELECT COUNT(*) FROM stock_out WHERE reference_number = ?");
-            $stmt->execute([$ref]);
-            if ((int)$stmt->fetchColumn() === 0) {
-                return $ref;
-            }
-            $count++;
-            $ref = sprintf('SO-%s-%03d', $date, $count);
-            $i++;
-        }
-        // fallback: append uniqid
-        return 'SO-' . $date . '-' . uniqid();
+        
+        return $ref;
     }
 
     /**
@@ -85,17 +72,15 @@ class StockOut
             // insert stock_out
             $insert = $this->db->prepare("
                 INSERT INTO stock_out 
-                (material_id, quantity, usage_type, reference_number, txn_date, note, created_by)
-                VALUES (:material_id, :quantity, :usage_type, :reference_number, :txn_date, :note, :created_by)
+                (material_id, quantity, txn_date, txn_code, created_by)
+                VALUES (:material_id, :quantity, :txn_date, :txn_code, :created_by)
             ");
 
             $insert->execute([
                 ':material_id' => (int)$data['material_id'],
                 ':quantity' => $qty,
-                ':usage_type' => $data['usage_type'],
-                ':reference_number' => $reference,
                 ':txn_date' => $data['transaction_date'],
-                ':note' => $data['notes'] ?? $data['note'] ?? null,
+                ':txn_code' => $reference,
                 ':created_by' => (int)$data['created_by']
             ]);
 
@@ -125,8 +110,7 @@ class StockOut
                     'stock_out_id' => $stockOutId,
                     'reference' => $reference,
                     'material_id' => (int)$data['material_id'],
-                    'quantity' => $qty,
-                    'usage_type' => $data['usage_type']
+                    'quantity' => $qty
                 ])
             ]);
 
@@ -159,9 +143,7 @@ class StockOut
         if (!is_numeric($data['quantity'])) {
             throw new Exception("quantity must be numeric");
         }
-        if (empty($data['usage_type']) || !in_array($data['usage_type'], $this->usageTypes, true)) {
-            throw new Exception("usage_type invalid");
-        }
+
         if (empty($data['transaction_date'])) {
             throw new Exception("transaction_date required");
         }
@@ -238,10 +220,6 @@ class StockOut
             $where[] = "material_id = :material_id";
             $params[':material_id'] = (int)$filters['material_id'];
         }
-        if (!empty($filters['usage_type'])) {
-            $where[] = "usage_type = :usage_type";
-            $params[':usage_type'] = $filters['usage_type'];
-        }
         if (!empty($filters['start_date'])) {
             $where[] = "txn_date >= :start_date";
             $params[':start_date'] = $filters['start_date'];
@@ -249,10 +227,6 @@ class StockOut
         if (!empty($filters['end_date'])) {
             $where[] = "txn_date <= :end_date";
             $params[':end_date'] = $filters['end_date'];
-        }
-        if (!empty($filters['q'])) {
-            $where[] = "(reference_number LIKE :q OR note LIKE :q)";
-            $params[':q'] = '%' . $filters['q'] . '%';
         }
 
         $whereSql = count($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
@@ -263,7 +237,7 @@ class StockOut
         $total = (int)$countStmt->fetchColumn();
 
         // fetch rows with material name join, alias txn_date as transaction_date for frontend
-        $sql = "SELECT s.*, s.txn_date AS transaction_date, s.note AS notes, m.name AS material_name, u.name AS created_by_name
+        $sql = "SELECT s.*, s.txn_date AS transaction_date, m.name AS material_name, u.name AS created_by_name
                 FROM stock_out s
                 LEFT JOIN materials m ON m.id = s.material_id
                 LEFT JOIN users u ON u.id = s.created_by
@@ -432,5 +406,26 @@ class StockOut
             $this->db->rollBack();
             throw $e;
         }
+    }
+
+    /**
+     * Get recent stock out transactions
+     */
+    public function getRecent(int $limit = 5): array
+    {
+        $sql = "SELECT 
+                    so.id,
+                    so.quantity,
+                    so.txn_date,
+                    m.name as material_name,
+                    m.unit
+                FROM stock_out so
+                INNER JOIN materials m ON so.material_id = m.id
+                ORDER BY so.created_at DESC
+                LIMIT ?";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$limit]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

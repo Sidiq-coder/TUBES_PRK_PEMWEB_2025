@@ -205,7 +205,6 @@ class MaterialApiController extends Controller
                 'unit' => 'required|max:50',
                 'min_stock' => 'required|numeric|min:0',
                 'code' => 'max:50',
-                'default_supplier_id' => 'numeric',
                 'current_stock' => 'numeric|min:0'
             ]);
 
@@ -264,7 +263,6 @@ class MaterialApiController extends Controller
                 'unit' => 'max:50',
                 'min_stock' => 'numeric|min:0',
                 'code' => 'max:50',
-                'default_supplier_id' => 'numeric',
                 'current_stock' => 'numeric|min:0'
             ]);
 

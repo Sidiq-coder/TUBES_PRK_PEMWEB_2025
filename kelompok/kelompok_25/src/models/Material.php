@@ -11,6 +11,7 @@ class Material extends Model {
                     m.unit,
                     m.current_stock,
                     m.min_stock,
+                    m.image_url,
                     c.name as category_name,
                     COALESCE(
                         (SELECT unit_price FROM stock_in WHERE material_id = m.id ORDER BY created_at DESC LIMIT 1),
@@ -85,10 +86,9 @@ class Material extends Model {
     }
 
     public function findById($id) {
-        $sql = "SELECT m.*, c.name as category_name, s.name as supplier_name 
+        $sql = "SELECT m.*, c.name as category_name
                 FROM {$this->table} m
                 LEFT JOIN categories c ON m.category_id = c.id
-                LEFT JOIN suppliers s ON m.default_supplier_id = s.id
                 WHERE m.id = ? LIMIT 1";
         return $this->query($sql, [$id])->fetch();
     }
@@ -149,10 +149,9 @@ class Material extends Model {
     {
         $offset = ($page - 1) * $perPage;
         
-        $sql = "SELECT m.*, c.name as category_name, s.name as supplier_name 
+        $sql = "SELECT m.*, c.name as category_name
                 FROM {$this->table} m
                 LEFT JOIN categories c ON m.category_id = c.id
-                LEFT JOIN suppliers s ON m.default_supplier_id = s.id
                 WHERE m.is_active = 1";
         
         $params = [];
@@ -292,7 +291,6 @@ class Material extends Model {
                         m.current_stock,
                         m.min_stock,
                         c.name as category_name,
-                        s.name as supplier_name,
                         COALESCE(
                             (SELECT unit_price FROM stock_in WHERE material_id = m.id ORDER BY created_at DESC LIMIT 1),
                             0
@@ -305,7 +303,6 @@ class Material extends Model {
                         END as status
                     FROM materials m
                     LEFT JOIN categories c ON m.category_id = c.id
-                    LEFT JOIN suppliers s ON m.default_supplier_id = s.id
                     {$whereSql}
                     ORDER BY m.current_stock ASC, m.name ASC
                     LIMIT ? OFFSET ?";
@@ -337,5 +334,28 @@ class Material extends Model {
 
         $stmt = $this->query($sql);
         return $stmt->fetch();
+    }
+
+    /**
+     * Get low stock materials for dashboard
+     */
+    public function getLowStockMaterials($limit = 10)
+    {
+        $sql = "SELECT 
+                    m.id,
+                    m.name,
+                    m.code,
+                    m.unit,
+                    m.current_stock,
+                    m.min_stock,
+                    c.name as category_name
+                FROM materials m
+                LEFT JOIN categories c ON m.category_id = c.id
+                WHERE m.is_active = 1 AND m.current_stock <= m.min_stock
+                ORDER BY (m.current_stock / NULLIF(m.min_stock, 0)) ASC, m.current_stock ASC
+                LIMIT ?";
+        
+        $stmt = $this->query($sql, [$limit]);
+        return $stmt->fetchAll();
     }
 }

@@ -315,7 +315,6 @@ const MaterialModule = {
                     <td class="px-6 py-4 text-slate-500">${this.escapeHtml(material.category_name || 'N/A')}</td>
                     <td class="px-6 py-4 font-semibold text-slate-800">${material.current_stock || 0} ${material.unit || ''}</td>
                     <td class="px-6 py-4 text-slate-500">${material.min_stock || 0} ${material.unit || ''}</td>
-                    <td class="px-6 py-4 text-slate-500">${this.escapeHtml(material.supplier_name || 'N/A')}</td>
                     <td class="px-6 py-4">${statusBadge}</td>
                     <td class="px-6 py-4">
                         <div class="flex items-center gap-2">

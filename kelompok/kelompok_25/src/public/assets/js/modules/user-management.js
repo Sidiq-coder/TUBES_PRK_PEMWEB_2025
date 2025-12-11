@@ -12,6 +12,8 @@ const UserManagement = (function() {
     let userToDeactivate = null;
     let userToResetPassword = null;
 
+    let selectedAvatarFile = null;
+
     function init() {
         loadRoles();
         loadUsers();
@@ -24,6 +26,12 @@ const UserManagement = (function() {
         const statusFilter = document.getElementById('statusFilter');
         const prevPage = document.getElementById('prevPage');
         const nextPage = document.getElementById('nextPage');
+        
+        // Avatar upload handler
+        const avatarInput = document.getElementById('userAvatarInput');
+        if (avatarInput) {
+            avatarInput.addEventListener('change', handleAvatarPreview);
+        }
 
         if (searchInput) {
             searchInput.addEventListener('input', function() {
@@ -170,14 +178,18 @@ const UserManagement = (function() {
             const statusClass = user.is_active == 1 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700';
             const statusText = user.is_active == 1 ? 'active' : 'inactive';
             const lastLogin = user.updated_at ? new Date(user.updated_at).toLocaleDateString('id-ID') : '-';
+            const userInitial = user.name.charAt(0).toUpperCase();
+            
+            // Avatar display
+            const avatarHtml = user.avatar_url 
+                ? `<img src="${escapeHtml(user.avatar_url)}" alt="${escapeHtml(user.name)}" class="w-12 h-12 rounded-xl object-cover border-2 border-white">`
+                : `<div class="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center text-2xl font-semibold">${userInitial}</div>`;
             
             return `
                 <article class="rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow">
                     <div class="${colorClass} p-6 text-white flex items-center justify-between">
                         <div class="flex items-center gap-3">
-                            <div class="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center text-2xl">
-                                👤
-                            </div>
+                            ${avatarHtml}
                             <div>
                                 <h3 class="font-semibold text-lg">${escapeHtml(user.name)}</h3>
                             </div>
@@ -253,7 +265,51 @@ const UserManagement = (function() {
         }
     }
 
+    function handleAvatarPreview(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            showToast('error', 'Gagal', 'File harus berupa gambar');
+            return;
+        }
+
+        if (file.size > 2 * 1024 * 1024) {
+            showToast('error', 'Gagal', 'Ukuran file maksimal 2MB');
+            return;
+        }
+
+        selectedAvatarFile = file;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('userAvatarPreview');
+            preview.innerHTML = `<img src="${e.target.result}" class="w-full h-full rounded-full object-cover">`;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function uploadUserAvatar(userId, file) {
+        const formData = new FormData();
+        formData.append('avatar', file);
+        formData.append('user_id', userId);
+
+        try {
+            const response = await fetch(`/api/users/${userId}/upload-avatar`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            return result.success;
+        } catch (error) {
+            console.error('Error uploading avatar:', error);
+            return false;
+        }
+    }
+
     function showCreateModal() {
+        selectedAvatarFile = null;
         document.getElementById('modalTitle').textContent = 'Tambah User Baru';
         document.getElementById('userId').value = '';
         document.getElementById('userName').value = '';
@@ -261,6 +317,12 @@ const UserManagement = (function() {
         document.getElementById('userPassword').value = '';
         document.getElementById('userRole').value = '';
         document.getElementById('userIsActive').checked = true;
+        
+        // Reset avatar preview
+        const preview = document.getElementById('userAvatarPreview');
+        preview.innerHTML = '👤';
+        preview.className = 'w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl font-bold border-2 border-slate-300';
+        document.getElementById('userAvatarInput').value = '';
         
         document.getElementById('passwordField').style.display = 'block';
         document.getElementById('passwordRequired').style.display = 'inline';
@@ -280,11 +342,24 @@ const UserManagement = (function() {
             }
 
             const user = result.data;
+            selectedAvatarFile = null;
+            
             document.getElementById('modalTitle').textContent = 'Edit User';
             document.getElementById('userId').value = user.id;
             document.getElementById('userName').value = user.name;
             document.getElementById('userEmail').value = user.email;
             document.getElementById('userPassword').value = '';
+            
+            // Show current avatar
+            const preview = document.getElementById('userAvatarPreview');
+            if (user.avatar_url) {
+                preview.innerHTML = `<img src="${escapeHtml(user.avatar_url)}" class="w-full h-full rounded-full object-cover">`;
+            } else {
+                const initial = user.name.charAt(0).toUpperCase();
+                preview.innerHTML = initial;
+                preview.className = 'w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl font-bold border-2 border-slate-300';
+            }
+            document.getElementById('userAvatarInput').value = '';
             document.getElementById('userRole').value = user.role_id || '';
             document.getElementById('userIsActive').checked = user.is_active == 1;
 
@@ -346,6 +421,13 @@ const UserManagement = (function() {
 
             if (!result.success) {
                 throw new Error(result.message);
+            }
+
+            const createdUserId = result.data?.id || userId;
+
+            // Upload avatar if selected
+            if (selectedAvatarFile && createdUserId) {
+                await uploadUserAvatar(createdUserId, selectedAvatarFile);
             }
 
             showToast('success', 'Berhasil', userId ? 'User berhasil diperbarui' : 'User berhasil ditambahkan');

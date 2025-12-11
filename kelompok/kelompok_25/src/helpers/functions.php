@@ -248,6 +248,81 @@ function has_role($role)
 }
 
 /**
+ * Check if user has permission
+ * @param string $permission Permission code to check
+ * @return bool
+ */
+function has_permission($permission)
+{
+    $user = current_user();
+    if (!$user) return false;
+    
+    // Admin has all permissions
+    if (isset($user['role_code']) && $user['role_code'] === 'admin') {
+        return true;
+    }
+    
+    // Check if user has the permission in their session
+    if (isset($user['permissions']) && is_array($user['permissions'])) {
+        return in_array($permission, $user['permissions']);
+    }
+    
+    return false;
+}
+
+/**
+ * Check if user has any of the specified permissions
+ * @param array $permissions Array of permission codes
+ * @return bool
+ */
+function has_any_permission($permissions)
+{
+    if (!is_array($permissions)) {
+        $permissions = [$permissions];
+    }
+    
+    foreach ($permissions as $permission) {
+        if (has_permission($permission)) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Check if user has all specified permissions
+ * @param array $permissions Array of permission codes
+ * @return bool
+ */
+function has_all_permissions($permissions)
+{
+    if (!is_array($permissions)) {
+        $permissions = [$permissions];
+    }
+    
+    foreach ($permissions as $permission) {
+        if (!has_permission($permission)) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * Get user's permissions array
+ * @return array
+ */
+function get_user_permissions()
+{
+    $user = current_user();
+    if (!$user) return [];
+    
+    return $user['permissions'] ?? [];
+}
+
+/**
  * Generate random string
  */
 function generate_token($length = 32)

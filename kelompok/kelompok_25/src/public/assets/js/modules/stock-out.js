@@ -229,7 +229,7 @@ const StockOutModule = {
         if (this.state.stockOuts.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="text-center">Tidak ada data stock out</td>
+                    <td colspan="4" class="text-center">Tidak ada data stock out</td>
                 </tr>
             `;
             return;
@@ -241,19 +241,11 @@ const StockOutModule = {
             return `
                 <tr>
                     <td>${no}</td>
-                    <td><code>${so.reference_number || '-'}</code></td>
                     <td>${so.material_code ? so.material_code + '<br>' : ''}${so.material_name || '-'}</td>
                     <td class="text-end"><strong>${parseFloat(so.quantity || 0).toFixed(2)}</strong></td>
-                    <td><span class="badge bg-primary">${this.getUsageTypeLabel(so.usage_type)}</span></td>
-                    <td>${so.destination || '-'}</td>
                     <td>
                         <small>${new Date(so.transaction_date).toLocaleDateString('id-ID')}</small><br>
                         <small class="text-muted">oleh: ${so.created_by_name || '-'}</small>
-                    </td>
-                    <td>
-                        <button class="btn btn-sm btn-info" onclick="StockOutModule.viewDetail(${so.id})">
-                            <i class="bi bi-eye"></i>
-                        </button>
                     </td>
                 </tr>
             `;

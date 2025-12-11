@@ -170,11 +170,6 @@ const LowStock = (function() {
                         </span>
                     </td>
                     <td class="px-6 py-4 text-sm text-slate-600">${escapeHtml(material.supplier_name || '-')}</td>
-                    <td class="px-6 py-4">
-                        <button onclick="LowStock.notifySupplier(${material.id})" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
-                            Kirim Notif
-                        </button>
-                    </td>
                 </tr>
             `;
         }).join('');
@@ -413,20 +408,123 @@ const LowStock = (function() {
 
     async function notifySupplier(materialId) {
         try {
-            const response = await fetch(`/api/low-stock/${materialId}/notify`, {
-                method: 'POST'
-            });
-
+            // Get material detail to show supplier info
+            const response = await fetch(`/api/materials/${materialId}`);
             const result = await response.json();
 
             if (!result.success) {
                 throw new Error(result.message);
             }
 
-            showToast('success', 'Berhasil', 'Notifikasi berhasil dicatat');
+            const material = result.data;
+            const supplier = material.supplier;
+
+            if (!supplier) {
+                showToast('warning', 'Perhatian', 'Bahan ini belum memiliki supplier');
+                return;
+            }
+
+            // Show supplier info modal
+            const modalHTML = `
+                <div id="supplierInfoModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 overflow-hidden">
+                        <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-xl font-bold text-white">Informasi Supplier</h3>
+                                <button onclick="LowStock.hideSupplierInfoModal()" class="text-white hover:text-blue-100">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="p-6 space-y-6">
+                            <div>
+                                <div class="text-sm text-slate-500 mb-2">Bahan</div>
+                                <div class="text-lg font-semibold text-slate-800">${escapeHtml(material.name)}</div>
+                                <div class="text-sm text-slate-600 mt-1">Kode: ${escapeHtml(material.code)}</div>
+                            </div>
+                            
+                            <div class="border-t border-slate-200 pt-6">
+                                <div class="space-y-4">
+                                    <div>
+                                        <div class="text-sm text-slate-500 mb-1">Nama Supplier</div>
+                                        <div class="text-base font-semibold text-slate-800">${escapeHtml(supplier.name)}</div>
+                                    </div>
+                                    
+                                    ${supplier.contact_person ? `
+                                    <div>
+                                        <div class="text-sm text-slate-500 mb-1">Kontak Person</div>
+                                        <div class="text-base text-slate-700">${escapeHtml(supplier.contact_person)}</div>
+                                    </div>
+                                    ` : ''}
+                                    
+                                    ${supplier.phone ? `
+                                    <div>
+                                        <div class="text-sm text-slate-500 mb-1">Nomor Telepon</div>
+                                        <a href="tel:${escapeHtml(supplier.phone)}" class="text-base text-blue-600 hover:text-blue-700 font-medium">
+                                            ${escapeHtml(supplier.phone)}
+                                        </a>
+                                    </div>
+                                    ` : ''}
+                                    
+                                    ${supplier.email ? `
+                                    <div>
+                                        <div class="text-sm text-slate-500 mb-1">Email</div>
+                                        <a href="mailto:${escapeHtml(supplier.email)}" class="text-base text-blue-600 hover:text-blue-700 font-medium">
+                                            ${escapeHtml(supplier.email)}
+                                        </a>
+                                    </div>
+                                    ` : ''}
+                                    
+                                    ${supplier.address ? `
+                                    <div>
+                                        <div class="text-sm text-slate-500 mb-1">Alamat</div>
+                                        <div class="text-base text-slate-700">${escapeHtml(supplier.address)}</div>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+                                <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <div class="text-sm text-amber-800">
+                                    <div class="font-semibold mb-1">Stok Rendah!</div>
+                                    <div>Stok saat ini: <span class="font-semibold">${material.current_stock} ${escapeHtml(material.unit)}</span></div>
+                                    <div>Minimal stok: <span class="font-semibold">${material.min_stock} ${escapeHtml(material.unit)}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-slate-50 px-6 py-4 flex justify-end">
+                            <button onclick="LowStock.hideSupplierInfoModal()" class="px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-medium transition-colors">
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Remove existing modal if any
+            const existingModal = document.getElementById('supplierInfoModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // Add modal to body
+            document.body.insertAdjacentHTML('beforeend', modalHTML);
+
         } catch (error) {
-            console.error('Error notifying supplier:', error);
-            showToast('error', 'Gagal', 'Gagal mengirim notifikasi');
+            console.error('Error loading supplier info:', error);
+            showToast('error', 'Gagal', 'Gagal memuat informasi supplier');
+        }
+    }
+
+    function hideSupplierInfoModal() {
+        const modal = document.getElementById('supplierInfoModal');
+        if (modal) {
+            modal.remove();
         }
     }
 
@@ -523,6 +621,7 @@ const LowStock = (function() {
         hideUrgentModal,
         hideReorderModal,
         hideCategoriesModal,
+        hideSupplierInfoModal,
         exportReport,
         printReorder,
         hideToast

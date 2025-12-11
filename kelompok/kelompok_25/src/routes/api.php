@@ -11,6 +11,12 @@ $router->post('/api/auth/logout', 'api/AuthApiController@logout');
 $router->get('/api/auth/me', 'api/AuthApiController@me');
 $router->get('/api/auth/check', 'api/AuthApiController@check');
 
+// Profile API routes
+$router->get('/api/profile', 'api/ProfileApiController@me');
+$router->post('/api/profile/update', 'api/ProfileApiController@update');
+$router->post('/api/profile/change-password', 'api/ProfileApiController@changePassword');
+$router->post('/api/profile/upload-avatar', 'api/ProfileApiController@uploadAvatar');
+
 // User & Role Management API routes
 $router->get('/api/users', 'api/UserApiController@index');
 $router->get('/api/users/{id}', 'api/UserApiController@show');
@@ -19,6 +25,7 @@ $router->post('/api/users/{id}', 'api/UserApiController@update');
 $router->post('/api/users/{id}/deactivate', 'api/UserApiController@deactivate');
 $router->post('/api/users/{id}/reset-password', 'api/UserApiController@resetPassword');
 $router->post('/api/users/{id}/role', 'api/UserApiController@setRole');
+$router->post('/api/users/{id}/upload-avatar', 'api/UserApiController@uploadAvatar');
 
 $router->get('/api/roles', 'api/RoleApiController@index');
 $router->get('/api/roles/{id}', 'api/RoleApiController@show');

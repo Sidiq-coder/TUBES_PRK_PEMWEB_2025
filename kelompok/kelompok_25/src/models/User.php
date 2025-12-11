@@ -90,9 +90,9 @@ class User extends Model
      */
     public function assignRole($userId, $roleId, $isDefault = true)
     {
-        // If this is default role, unset other default roles
+        // If this is default role, remove all existing roles first
         if ($isDefault) {
-            $sql = "UPDATE user_roles SET is_default = 0 WHERE user_id = ?";
+            $sql = "DELETE FROM user_roles WHERE user_id = ?";
             $this->query($sql, [$userId]);
         }
 

@@ -62,6 +62,7 @@ require_once ROOT_PATH . '/core/Upload.php';
 // Load middleware
 require_once ROOT_PATH . '/middleware/AuthMiddleware.php';
 require_once ROOT_PATH . '/middleware/RoleMiddleware.php';
+require_once ROOT_PATH . '/middleware/PermissionMiddleware.php';
 
 // Check remember me cookie
 if (!Auth::check() && isset($_COOKIE['remember_token'])) {

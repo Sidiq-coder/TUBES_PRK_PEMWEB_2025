@@ -11,11 +11,23 @@ class Permission extends Model
     protected $table = 'permissions';
 
     /**
+     * Get all permissions
+     */
+    public function getAll()
+    {
+        $sql = "SELECT * FROM {$this->table} ORDER BY id ASC";
+        $stmt = $this->query($sql);
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Get all active permissions
      */
     public function getActive()
     {
-        return $this->where('is_active', 1);
+        $sql = "SELECT * FROM {$this->table} WHERE is_active = 1 ORDER BY id ASC";
+        $stmt = $this->query($sql);
+        return $stmt->fetchAll();
     }
 
     /**

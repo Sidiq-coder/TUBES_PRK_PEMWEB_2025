@@ -111,7 +111,20 @@ class Role extends Model
         $countSql = "SELECT COUNT(*) FROM roles r {$whereSql}";
         $total = (int)$this->query($countSql, $params)->fetchColumn();
 
-        $dataSql = "SELECT r.* FROM roles r {$whereSql} ORDER BY r.created_at DESC LIMIT ? OFFSET ?";
+        $dataSql = "SELECT r.*,
+                           (SELECT COUNT(DISTINCT ur2.user_id) 
+                            FROM user_roles ur2 
+                            INNER JOIN users u2 ON ur2.user_id = u2.id 
+                            WHERE ur2.role_id = r.id AND u2.is_active = 1) as user_count,
+                           COUNT(DISTINCT rp.permission_id) as permission_count,
+                           GROUP_CONCAT(DISTINCT p.name ORDER BY p.name SEPARATOR ', ') as permission_names
+                    FROM roles r
+                    LEFT JOIN role_permissions rp ON r.id = rp.role_id
+                    LEFT JOIN permissions p ON rp.permission_id = p.id
+                    {$whereSql}
+                    GROUP BY r.id
+                    ORDER BY r.created_at DESC 
+                    LIMIT ? OFFSET ?";
         $dataParams = array_merge($params, [$perPage, $offset]);
         $data = $this->query($dataSql, $dataParams)->fetchAll();
 
