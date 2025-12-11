@@ -1,13 +1,108 @@
-# Inventory Manager – Kelompok 25
+# Inventory Bahan Baku – Kelompok 25
+# Kelompok 25
+- M. Sidiq Firdaus
+- Muhammad Taufik Saputra
+- Rima Dwi Puspitasari
+- Agnes Anggraini
 
-Dashboard stok bahan baku berbasis PHP native dengan arsitektur MVC ringan. Frontend memakai Tailwind CSS, sedangkan backend menggunakan router kustom, controller, dan model PDO. Projek ini disiapkan agar tim BE dan FE dapat bekerja paralel: tampilan bisa dikembangkan lebih dulu, sementara integrasi data tetap mengikuti struktur controller/model yang sudah ada.
+Inventori stok dan bahan baku adalah sistem informasi manajemen stok bahan baku berbasis web yang dibangun menggunakan PHP native dengan arsitektur MVC (Model-View-Controller). Sistem ini dirancang untuk membantu perusahaan mengelola inventori bahan baku secara efisien dengan fitur monitoring stok real-time, pelacakan transaksi, dan sistem peringatan otomatis untuk bahan yang hampir habis.
 
-## Teknologi Utama
-- PHP 8 (native, tanpa framework)
-- Tailwind CSS (via CDN untuk pengembangan cepat)
-- Router & Controller kustom
-- PDO untuk akses database MySQL
-- Struktur modular (views/layouts/partials) agar mudah di-scale
+## Fungsi Utama Sistem
+
+### 1. 📦 Manajemen Data Master
+- **Bahan Baku (Materials)**
+  - CRUD data bahan dengan informasi lengkap (kode, nama, kategori, satuan, harga, stok minimum)
+  - Upload foto bahan
+  - Monitoring stok aktual vs stok minimum
+  - Filter dan pencarian data
+
+- **Kategori (Categories)**
+  - Pengelompokan bahan berdasarkan jenis (Tepung, Gula, Minyak, dll)
+  - CRUD kategori dengan deskripsi
+
+- **Supplier**
+  - Manajemen data pemasok (nama, kontak, alamat)
+  - Status aktif/non-aktif supplier
+  - Riwayat transaksi dengan supplier
+
+### 2. 📊 Transaksi Stok
+- **Stok Masuk (Stock In)**
+  - Pencatatan penerimaan/pembelian bahan baru
+  - Input jumlah, harga beli, supplier, dan tanggal transaksi
+  - Generate nomor referensi otomatis (SI-YYYYMMDD-XXX)
+  - Update stok otomatis setelah transaksi
+
+- **Stok Keluar (Stock Out)**
+  - Pencatatan penggunaan bahan dengan berbagai tujuan:
+    - Produksi (production)
+    - Penjualan (sale)
+    - Limbah (waste)
+    - Transfer (transfer)
+    - Lainnya (other)
+  - Validasi stok tersedia sebelum pengeluaran
+  - Generate nomor referensi otomatis (SO-YYYYMMDD-XXX)
+
+- **Penyesuaian Stok (Stock Adjustments)**
+  - Koreksi stok fisik vs stok sistem (stock opname)
+  - Alasan penyesuaian: koreksi perhitungan, barang rusak, kadaluarsa, kehilangan, kesalahan sistem
+  - Audit trail lengkap untuk setiap penyesuaian
+
+### 3. 🔔 Monitoring & Peringatan
+- **Dashboard Real-time**
+  - Total bahan baku aktif
+  - Total nilai stok (Rp)
+  - Jumlah bahan low stock dan out of stock
+  - Recent activities (10 aktivitas terakhir)
+  - Widget aksi cepat ke fitur utama
+
+- **Low Stock Alert**
+  - Deteksi otomatis bahan dengan stok di bawah minimum
+  - Kategorisasi: Urgent (stok = 0), Warning (stok < minimum)
+  - Saran reorder quantity
+  - Filter berdasarkan kategori dan status
+  - Export laporan
+
+### 4. 📈 Pelaporan
+- **Laporan Stok**
+  - Snapshot kondisi stok semua bahan
+  - Nilai stok per bahan dan total
+  - Status stok (Aman/Low Stock/Habis)
+  - Export ke Excel
+
+- **Laporan Transaksi**
+  - Riwayat transaksi (masuk, keluar, penyesuaian)
+  - Filter berdasarkan periode dan jenis transaksi
+  - Visualisasi tren transaksi dengan chart
+  - Export Excel dan CSV
+
+### 5. 👥 Manajemen User & Hak Akses
+- **Role-Based Access Control (RBAC)**
+  - Role: Admin, Manager, Staff (dapat dikustomisasi)
+  - Permission granular per fitur (view, create, edit, delete, export)
+  - Flexible assignment: 1 user dapat memiliki multiple roles
+
+- **User Management**
+  - CRUD user dengan informasi profil lengkap
+  - Upload avatar
+  - Assign roles ke user
+  - Status aktif/non-aktif
+
+- **Profile Management**
+  - User dapat update profil sendiri
+  - Change password
+  - View recent activities
+
+- **Activity Logs**
+  - Audit trail semua aktivitas user
+  - Tracking: who, what, when, IP address
+
+### 6. 🔐 Keamanan
+- Password hashing (bcrypt)
+- CSRF token protection
+- SQL injection prevention (prepared statements)
+- XSS protection
+- Session security
+- Permission-based authorization
 
 ## Struktur Folder
 
@@ -99,7 +194,7 @@ define('ROOT_PATH', dirname(__DIR__));
 Script `setup_permissions.php` dan `create_admin.php` **TIDAK PERLU** dijalankan karena `database.sql` sudah include semuanya. 
 
 **Hanya jalankan jika:**
-- Lupa password admin → jalankan `php create_admin.php` untuk reset atau ketika login awal gagal
+- Lupa password admin atau login pertama gagal → jalankan `php create_admin.php` untuk reset atau ketika login awal gagal
 - Permissions tidak lengkap → jalankan `php setup_permissions.php`
 
 #### 5. Jalankan Server Development
@@ -155,4 +250,4 @@ php -S localhost:8000 -t public
 - Gunakan Tailwind CDN saat prototyping; pindah ke build pipeline (`npm run build`) jika perlu optimisasi produksi.
 
 ---
-Kelompok 25 – Sistem Informasi Manajemen Stok Bahan Baku
+Kelompok 25 – Sistem Informasi Inventori Stok Bahan Baku
