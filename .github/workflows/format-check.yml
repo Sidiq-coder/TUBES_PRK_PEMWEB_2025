@@ -23,7 +23,7 @@ jobs:
         run: |
           TARGET=${{ github.base_ref }}
           echo "Target branch: $TARGET"
-          files=$(git diff --name-only origin/$TARGET...${{ github.event.pull_request.head.sha }})
+          files=$(git diff --name-only origin/$TARGET...HEAD)
           echo "files<<EOF" >> $GITHUB_OUTPUT
           echo "$files" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
